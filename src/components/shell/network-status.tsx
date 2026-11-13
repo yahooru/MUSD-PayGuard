@@ -27,12 +27,16 @@ export function useNetworkInfo() {
   });
 }
 
-/** Persistent testnet badge + live block height, straight from the RPC. */
-export function NetworkStatus({ className }: { className?: string }) {
+/**
+ * Persistent testnet badge + live block height, straight from the RPC.
+ * `className` owns the display value (default inline-flex), so callers can hide it
+ * responsively with e.g. "hidden md:inline-flex" without a class-order conflict.
+ */
+export function NetworkStatus({ className = "inline-flex" }: { className?: string }) {
   const { data, isError } = useNetworkInfo();
   const ok = data?.rpcOk && !isError;
   return (
-    <div className={cn("inline-flex h-8 items-center gap-2 rounded-full border border-line bg-surface px-3 text-[12px]", className)}>
+    <div className={cn("h-8 shrink-0 items-center gap-2 rounded-full border border-line bg-surface px-3 text-[12px]", className)}>
       <span className="rounded-full bg-warn/15 px-1.5 py-px font-semibold text-warn">Testnet</span>
       <span className="hidden text-muted sm:inline">{SUPPORTED_NETWORK.name}</span>
       <span className="inline-flex items-center gap-1.5 text-muted" title={ok ? `RPC latency ${data?.rpcLatencyMs} ms` : "RPC unreachable"}>

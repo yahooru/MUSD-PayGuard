@@ -11,11 +11,11 @@ export function LogoMark({ className = "size-7" }: { className?: string }) {
   );
 }
 
-export function Logo({ href = "/" }: { href?: string }) {
+export function Logo({ href = "/", compact = false }: { href?: string; compact?: boolean }) {
   return (
-    <Link href={href} className="inline-flex items-center gap-2.5 rounded-md" aria-label="MUSD PayGuard home">
+    <Link href={href} className="inline-flex shrink-0 items-center gap-2.5 rounded-md" aria-label="MUSD PayGuard home">
       <LogoMark />
-      <span className="heading text-[16px] tracking-tight">
+      <span className={compact ? "heading hidden whitespace-nowrap text-[16px] tracking-tight sm:inline" : "heading whitespace-nowrap text-[16px] tracking-tight"}>
         MUSD PayGuard
       </span>
     </Link>

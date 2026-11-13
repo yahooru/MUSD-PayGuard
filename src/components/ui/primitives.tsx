@@ -22,7 +22,15 @@ const VARIANT: Record<Variant, string> = {
 
 /** Shared by Button and ButtonLink: colour transitions plus a 1px press so a click is felt. */
 const BASE =
-  "inline-flex items-center justify-center whitespace-nowrap select-none transition-[background-color,border-color,color,box-shadow,transform] duration-150 active:translate-y-px disabled:active:translate-y-0";
+  "items-center justify-center whitespace-nowrap select-none transition-[background-color,border-color,color,box-shadow,transform] duration-150 active:translate-y-px disabled:active:translate-y-0";
+
+/**
+ * Buttons are inline-flex unless the caller sets its own base display (e.g. "hidden sm:inline-flex").
+ * Emitting both would leave the outcome to stylesheet order, which is how "hidden" silently lost.
+ */
+function display(className?: string): string | false {
+  return !/(^|\s)(hidden|block|inline|inline-block|flex|inline-flex|grid|inline-grid|contents)(\s|$)/.test(className ?? "") && "inline-flex";
+}
 const SIZE: Record<Size, string> = {
   sm: "h-8 px-3 text-[13px] gap-1.5 rounded-[8px]",
   md: "h-10 px-4 text-sm gap-2 rounded-[10px]",
@@ -46,6 +54,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       className={cn(
+        display(className),
         BASE,
         "disabled:cursor-not-allowed disabled:opacity-50",
         VARIANT[variant],
@@ -77,7 +86,7 @@ export function ButtonLink({
   icon?: ReactNode;
   external?: boolean;
 }) {
-  const cls = cn(BASE, VARIANT[variant], variant !== "quiet" && SIZE[size], className);
+  const cls = cn(display(className), BASE, VARIANT[variant], variant !== "quiet" && SIZE[size], className);
   if (external) {
     return (
       <a href={href} target="_blank" rel="noopener noreferrer" className={cls}>
