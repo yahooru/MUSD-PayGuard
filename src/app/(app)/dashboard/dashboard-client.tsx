@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Coins, Plus, ReceiptText, Send, TriangleAlert, Users } from "lucide-react";
+import { BadgeCheck, Check, Coins, ExternalLink, Fuel, Plus, ReceiptText, Send, TriangleAlert, UserPlus, Users } from "lucide-react";
 import Link from "next/link";
 import { useAccount } from "wagmi";
 import { SUPPORTED_NETWORK, chainName, isSupportedChain } from "@/config/chains";
@@ -28,7 +28,7 @@ interface Dashboard {
 export function TxRow({ tx }: { tx: TransactionDTO }) {
   return (
     <li>
-      <Link href={`/tx/${tx.id}`} className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-[10px] px-3 py-3 hover:bg-surface-2 sm:grid-cols-[1.4fr_1fr_auto]">
+      <Link href={`/tx/${tx.id}`} className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-[10px] px-3 py-3 transition-colors hover:bg-surface-2 sm:grid-cols-[1.4fr_1fr_auto]">
         <span className="min-w-0">
           <ShortAddress address={tx.recipient} label={tx.recipientLabel} />
           <span className="block truncate text-[12px] text-faint">
@@ -58,87 +58,165 @@ export function DashboardClient() {
   const q = useQuery({ queryKey: ["dashboard"], queryFn: () => api<Dashboard>("/api/dashboard"), refetchInterval: 20_000 });
   const d = q.data;
   const confirmed = d?.counts.confirmed;
-  const firstRun = d && d.recent.length === 0 && d.recipientCount === 0;
+  const noFeeBtc = native.data !== undefined && native.data.value === 0n;
+  const setup = d
+    ? [
+        {
+          done: native.data !== undefined && native.data.value > 0n,
+          title: "Get testnet BTC for fees",
+          body: "Fees on Mezo are paid in BTC. The faucet is free; test MUSD comes from borrowing in the Mezo app or a teammate.",
+          action: (
+            <a className="link inline-flex items-center gap-1 text-[13px]" href={SUPPORTED_NETWORK.faucetUrl} target="_blank" rel="noopener noreferrer">
+              Open the Mezo faucet <ExternalLink className="size-3" aria-hidden />
+            </a>
+          ),
+        },
+        {
+          done: d.recipientCount > 0,
+          title: "Save a recipient you trust",
+          body: "Saved contacts let PayGuard catch a changed or lookalike address before you pay it.",
+          action: (
+            <Link className="link text-[13px]" href="/recipients?new=1">
+              Save a recipient
+            </Link>
+          ),
+        },
+        {
+          done: d.recent.length > 0 || d.pending.length > 0,
+          title: "Send a first small payment",
+          body: "Watch every check run, then see the receipt verified on-chain.",
+          action: (
+            <Link className="link text-[13px]" href="/send">
+              Start a payment
+            </Link>
+          ),
+        },
+      ]
+    : null;
+  const setupDone = setup?.filter((s) => s.done).length ?? 0;
+  const showSetup = !!setup && setupDone < setup.length;
 
   return (
     <div className="space-y-8">
-      <PageHeader
-        title="Dashboard"
-        lede="Your MUSD, your pending payments and everything PayGuard flagged recently."
-        actions={
-          <>
-            <ButtonLink href="/requests?new=1" icon={<ReceiptText className="size-4" aria-hidden />}>
-              Request payment
-            </ButtonLink>
-            <ButtonLink href="/send" variant="primary" icon={<Send className="size-4" aria-hidden />}>
-              New payment
-            </ButtonLink>
-          </>
-        }
-      />
+      <PageHeader title="Dashboard" lede="Your MUSD, your pending payments and everything PayGuard flagged recently." />
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="hull p-5 md:col-span-2">
-          <p className="text-[13px] text-muted">MUSD balance (live from {SUPPORTED_NETWORK.name})</p>
-          <p className="display mt-2 text-[40px]">
-            {musd.data !== undefined ? <Musd value={musd.data} maxFraction={4} /> : musd.isError ? <span className="text-[18px] text-fail">RPC unavailable</span> : <Skeleton className="h-10 w-56" />}
-          </p>
-          <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-muted">
-            <span>
-              BTC for fees:{" "}
-              <span className="tnum text-text">{native.data ? formatAmount(native.data.value, { maxFraction: 8, minFraction: 0 }) : "…"}</span>
-            </span>
-            <span className="min-w-0">
-              Wallet: <FullAddress address={session.address ?? ""} className="align-middle" />
-            </span>
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button type="button" onClick={addMusd} className="inline-flex h-8 items-center gap-1.5 rounded-[8px] border border-line-strong px-3 text-[13px] hover:border-cyan/60">
-              <Coins className="size-3.5" aria-hidden /> Add MUSD to wallet
-            </button>
-            {isConnected && !isSupportedChain(chainId) ? (
-              <button type="button" onClick={switchToMezo} className="inline-flex h-8 items-center gap-1.5 rounded-[8px] border border-warn/50 px-3 text-[13px] text-warn">
-                <TriangleAlert className="size-3.5" aria-hidden /> On {chainName(chainId)}: switch
+      <div className="grid gap-4 lg:grid-cols-3">
+        <section className="hull relative overflow-hidden p-5 md:p-6 lg:col-span-2" aria-labelledby="balance-h">
+          <div className="grid-bg pointer-events-none absolute inset-0 opacity-50" aria-hidden />
+          <div className="relative">
+            <h2 id="balance-h" className="text-[13px] text-muted">
+              MUSD balance, live from {SUPPORTED_NETWORK.name}
+            </h2>
+            <div className="display mt-2 text-[40px] md:text-[48px]">
+              {musd.data !== undefined ? (
+                <Musd value={musd.data} maxFraction={4} />
+              ) : musd.isError ? (
+                <span className="text-[18px] text-fail">Balance unavailable: the RPC did not answer</span>
+              ) : (
+                <Skeleton className="h-12 w-60" />
+              )}
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-[13px] text-muted">
+              <span className={cn("inline-flex items-center gap-1.5", noFeeBtc && "text-warn")}>
+                <Fuel className="size-3.5" aria-hidden />
+                BTC for fees{" "}
+                <span className={cn("tnum", noFeeBtc ? "font-medium" : "text-text")}>
+                  {native.data ? formatAmount(native.data.value, { maxFraction: 8, minFraction: 0 }) : "…"}
+                </span>
+                {noFeeBtc ? (
+                  <a className="link ml-1" href={SUPPORTED_NETWORK.faucetUrl} target="_blank" rel="noopener noreferrer">
+                    Get some
+                  </a>
+                ) : null}
+              </span>
+              <span className="min-w-0">
+                <span className="mr-1.5">Signed in as</span>
+                <FullAddress address={session.address ?? ""} className="align-middle" />
+              </span>
+            </div>
+            <div className="mt-5 flex flex-wrap gap-2 border-t border-line pt-5">
+              <ButtonLink href="/send" variant="primary" size="sm" icon={<Send className="size-3.5" aria-hidden />}>
+                Send
+              </ButtonLink>
+              <ButtonLink href="/requests?new=1" size="sm" icon={<ReceiptText className="size-3.5" aria-hidden />}>
+                Request
+              </ButtonLink>
+              <ButtonLink href="/verify" size="sm" icon={<BadgeCheck className="size-3.5" aria-hidden />}>
+                Verify a payment
+              </ButtonLink>
+              <ButtonLink href="/recipients?new=1" size="sm" icon={<UserPlus className="size-3.5" aria-hidden />}>
+                Save recipient
+              </ButtonLink>
+              <button
+                type="button"
+                onClick={addMusd}
+                className="inline-flex h-8 items-center gap-1.5 rounded-[8px] px-3 text-[13px] text-muted transition-colors hover:bg-surface-2 hover:text-text"
+              >
+                <Coins className="size-3.5" aria-hidden /> Add MUSD to wallet
               </button>
-            ) : null}
+              {isConnected && !isSupportedChain(chainId) ? (
+                <button
+                  type="button"
+                  onClick={switchToMezo}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-[8px] border border-warn/50 px-3 text-[13px] text-warn"
+                >
+                  <TriangleAlert className="size-3.5" aria-hidden /> On {chainName(chainId)}: switch
+                </button>
+              ) : null}
+            </div>
           </div>
-        </div>
-        <div className="card flex flex-col justify-between p-5">
+        </section>
+        <section className="card grid grid-rows-[1fr_auto] p-5 md:p-6" aria-labelledby="verified-h">
           <div>
-            <p className="text-[13px] text-muted">Verified payments</p>
-            <p className="display mt-2 text-[34px] tnum">{d ? (confirmed?.n ?? 0) : "…"}</p>
-            <p className="text-[13px] text-muted">{confirmed ? <Musd value={confirmed.total} maxFraction={2} /> : null}</p>
+            <h2 id="verified-h" className="text-[13px] text-muted">
+              Verified payments
+            </h2>
+            <p className="display tnum mt-2 text-[40px]">{d ? (confirmed?.n ?? 0) : "…"}</p>
+            <p className="text-[13px] text-muted">{confirmed ? <>totalling <Musd value={confirmed.total} maxFraction={2} /></> : "Confirmed on-chain by PayGuard"}</p>
           </div>
-          <p className="mt-4 text-[12px] text-faint">
-            {d ? `${d.pending.length} awaiting verification, ${d.counts.failed?.n ?? 0} failed` : ""}
-          </p>
-        </div>
+          <dl className="mt-5 grid grid-cols-2 gap-3 border-t border-line pt-4 text-[13px]">
+            <div>
+              <dt className="text-faint">Awaiting verification</dt>
+              <dd className="tnum mt-0.5 text-[18px] font-semibold">{d ? d.pending.length : "…"}</dd>
+            </div>
+            <div>
+              <dt className="text-faint">Failed</dt>
+              <dd className={cn("tnum mt-0.5 text-[18px] font-semibold", (d?.counts.failed?.n ?? 0) > 0 && "text-fail")}>{d ? (d.counts.failed?.n ?? 0) : "…"}</dd>
+            </div>
+          </dl>
+        </section>
       </div>
 
-      {firstRun ? (
-        <section className="hull p-6" aria-labelledby="onboard-h">
-          <h2 id="onboard-h" className="heading text-lg">
-            Get set up in three steps
-          </h2>
-          <ol className="mt-4 grid gap-3 md:grid-cols-3">
-            {[
-              ["Get testnet funds", "Testnet BTC pays fees. Use the Mezo faucet, then borrow or receive test MUSD.", SUPPORTED_NETWORK.faucetUrl!, true],
-              ["Save a recipient you trust", "Saved contacts let PayGuard catch changed and lookalike addresses.", "/recipients?new=1", false],
-              ["Send a first small payment", "Watch every check run, then see the receipt verified on-chain.", "/send", false],
-            ].map(([t, b, href, ext], i) => (
-              <li key={t as string} className="card p-4">
-                <span className="mono text-[12px] text-cyan">Step {i + 1}</span>
-                <p className="mt-1 font-medium">{t as string}</p>
-                <p className="mt-1 text-[13px] text-muted">{b as string}</p>
-                {ext ? (
-                  <a className="link mt-2 inline-block text-[13px]" href={href as string} target="_blank" rel="noopener noreferrer">
-                    Open faucet
-                  </a>
-                ) : (
-                  <Link className="link mt-2 inline-block text-[13px]" href={href as string}>
-                    Start
-                  </Link>
-                )}
+      {showSetup && setup ? (
+        <section className="hull p-5 md:p-6" aria-labelledby="onboard-h">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <h2 id="onboard-h" className="heading text-lg">
+              Get set up
+            </h2>
+            <p className="text-[13px] text-muted">
+              {setupDone} of {setup.length} done
+            </p>
+          </div>
+          <div className="mt-3 h-1 overflow-hidden rounded-full bg-line" aria-hidden>
+            <div className="h-full rounded-full bg-pass transition-[width] duration-500" style={{ width: `${(setupDone / setup.length) * 100}%` }} />
+          </div>
+          <ol className="mt-5 grid gap-3 md:grid-cols-3">
+            {setup.map((s, i) => (
+              <li key={s.title} className={cn("card p-4", s.done && "border-pass/30")}>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={cn(
+                      "grid size-6 place-items-center rounded-full border text-[11px] font-semibold",
+                      s.done ? "border-pass/60 bg-pass/15 text-pass" : "border-cyan/60 text-cyan",
+                    )}
+                  >
+                    {s.done ? <Check className="size-3.5" strokeWidth={3} aria-hidden /> : i + 1}
+                  </span>
+                  <p className={cn("font-medium", s.done && "text-muted line-through decoration-line-strong")}>{s.title}</p>
+                  <span className="sr-only">{s.done ? "(done)" : "(to do)"}</span>
+                </div>
+                <p className="mt-2 text-[13px] text-muted">{s.body}</p>
+                {!s.done ? <div className="mt-3">{s.action}</div> : null}
               </li>
             ))}
           </ol>
@@ -171,7 +249,7 @@ export function DashboardClient() {
               <ul className="card divide-y divide-line p-1">
                 {d.drafts.map((x) => (
                   <li key={x.id}>
-                    <Link href={`/review/${x.id}`} className="flex items-center justify-between gap-3 rounded-[10px] px-3 py-3 hover:bg-surface-2">
+                    <Link href={`/review/${x.id}`} className="flex items-center justify-between gap-3 rounded-[10px] px-3 py-3 transition-colors hover:bg-surface-2">
                       <span className="min-w-0">
                         <span className="mono block truncate text-[13px]">{x.recipient}</span>
                         <span className="text-[12px] text-faint">
@@ -196,7 +274,7 @@ export function DashboardClient() {
               <ul className="space-y-2">
                 {d.warnings.map((w, i) => (
                   <li key={i}>
-                    <Link href={`/review/${w.draftId}`} className="card flex gap-3 p-3.5 hover:border-line-strong">
+                    <Link href={`/review/${w.draftId}`} className="card card-link flex gap-3 p-3.5">
                       <CheckIcon status={w.status} className="mt-0.5" />
                       <span className="min-w-0">
                         <span className="block text-[13px] font-medium">
