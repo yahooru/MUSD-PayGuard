@@ -1,6 +1,6 @@
 import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 import { env } from "./env";
-import { withConnectRetry } from "./retry";
+import { isReadOnlySql, withRetry } from "./retry";
 
 /**
  * Neon serverless (HTTP) client. All tables are schema-qualified with `payguard.`
@@ -15,9 +15,9 @@ export function db(): NeonQueryFunction<false, false> {
 
 export type Row = Record<string, any>;
 
-/** Runs one query. A connection that could not even be opened is retried twice (see retry.ts). */
+/** Runs one query, retrying transient network failures where that is provably safe (see retry.ts). */
 export async function q<T extends Row = Row>(text: string, params: unknown[] = []): Promise<T[]> {
-  return (await withConnectRetry(() => db().query(text, params))) as T[];
+  return (await withRetry(() => db().query(text, params), isReadOnlySql(text))) as T[];
 }
 
 export async function q1<T extends Row = Row>(text: string, params: unknown[] = []): Promise<T | null> {
