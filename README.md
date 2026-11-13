@@ -183,7 +183,8 @@ Typography: Archivo with its width axis (expanded for display) for an instrument
 | Unit (engine, verifier incl. retired-router receipts, sign guard, amounts, refs, status machine, gas policy, DB retry rules) | `npm test` | **119 passed** (5 files) |
 | Contract (Hardhat) | `cd contracts && npx hardhat test` | **23 passing** |
 | Type check / lint / build | `npm run typecheck`, `npm run lint`, `npm run build` | 0 type errors, 0 lint errors (4 warnings), build OK |
-| Live e2e on Mezo Testnet, unfunded mode, vs a local **production build** (2026-11-13, new router) | `TEST_WALLETS_FILE=… E2E_BASE_URL=http://localhost:3000 npm run e2e:testnet` | **50 passed, 0 failed**; real-transfer steps skipped (no test MUSD) |
+| Live e2e on Mezo Testnet, unfunded mode, vs **production** (2026-11-13, new router) | `TEST_WALLETS_FILE=… E2E_BASE_URL=https://musd-payguard.vercel.app npm run e2e:testnet` | **50 passed, 0 failed**; real-transfer steps skipped (no test MUSD). Same result against a local production build |
+| Production smoke (2026-11-13) | browser sweep of public and app pages at 1440px and 375px, plus `curl` | 0 console errors, no horizontal overflow, cron rejects missing/wrong secret (401), unknown pages 404, security headers present |
 | Live e2e on Mezo Testnet, funded mode, vs **production** (2026-10-26, first router) | `E2E_BASE_URL=https://musd-payguard.vercel.app npm run e2e:testnet` | **65 passed, 0 failed** |
 
 The live e2e (`scripts/e2e-testnet.ts`) reads two keys from `TEST_WALLETS_FILE` (`{"payguard":[{"role":"alice","privateKey":"0x…"},{"role":"bob",…}]}`, kept outside the repo) and picks a mode from alice's MUSD balance.
