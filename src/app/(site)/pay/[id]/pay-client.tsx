@@ -43,7 +43,7 @@ export function PayClient({ id }: { id: string }) {
 
   if (q.isLoading) {
     return (
-      <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
         <Skeleton className="h-[460px]" />
         <Skeleton className="h-[460px]" />
       </div>
@@ -71,7 +71,7 @@ export function PayClient({ id }: { id: string }) {
           Checked live just now. A valid request proves which wallet created it, not that the requester is who they claim to be.
         </p>
       </div>
-      <div className="grid items-start gap-6 lg:grid-cols-[400px_1fr]">
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[400px_minmax(0,1fr)]">
         <section className="hull lg:sticky lg:top-24" aria-labelledby="req-h">
           <div className="border-b border-line p-5">
             <h2 id="req-h" className="text-[13px] text-muted">

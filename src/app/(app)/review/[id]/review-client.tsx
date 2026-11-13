@@ -336,7 +336,7 @@ export function ReviewClient({ id }: { id: string }) {
 
   if (draftQ.isLoading) {
     return (
-      <div className="grid gap-6 lg:grid-cols-[400px_1fr]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[400px_minmax(0,1fr)]">
         <Skeleton className="h-[520px]" />
         <div className="space-y-3">
           <Skeleton className="h-28" />
@@ -384,7 +384,7 @@ export function ReviewClient({ id }: { id: string }) {
         </div>
       ) : null}
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,420px)_1fr]">
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
         {/* Manifest: exactly what will be signed */}
         <section className="hull lg:sticky lg:top-24" aria-labelledby="manifest-h">
           <div className="border-b border-line p-5">
