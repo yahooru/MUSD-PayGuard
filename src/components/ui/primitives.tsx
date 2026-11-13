@@ -12,7 +12,7 @@ type Size = "sm" | "md" | "lg";
 
 const VARIANT: Record<Variant, string> = {
   primary:
-    "bg-cyan text-cyan-ink font-semibold hover:bg-cyan-strong shadow-[inset_0_1px_0_rgb(255_255_255/0.35),0_0_0_1px_rgb(127_232_245/0.4),0_8px_24px_-10px_rgb(69_217_236/0.6)] disabled:shadow-none",
+    "bg-cyan text-cyan-ink font-semibold hover:bg-cyan-strong shadow-[inset_0_1px_0_rgb(255_255_255/0.35),0_0_0_1px_rgb(127_232_245/0.4),0_8px_24px_-10px_rgb(69_217_236/0.6)] disabled:shadow-none disabled:not-aria-busy:bg-surface-3 disabled:not-aria-busy:text-muted",
   secondary: "bg-surface-2 text-text font-medium border border-line-strong hover:border-cyan/60 hover:bg-surface-3",
   ghost: "text-muted hover:text-text hover:bg-surface-2",
   danger: "bg-fail/10 text-fail font-medium border border-fail/40 hover:bg-fail/20",

@@ -14,6 +14,11 @@ import { CheckIcon, CheckStatusTag, CHECK_STATUS_LABEL, RiskBadge } from "../ui/
 const GROUP_ORDER: CheckGroup[] = ["recipient", "network", "token", "funds", "simulation", "duplicates", "request", "integrity"];
 const RANK: Record<CheckStatus, number> = { fail: 3, warn: 2, unavailable: 1, pass: 0 };
 
+/** A check that deserves the reader's attention: anything but a pass or a harmless "not needed". */
+export function needsAttention(c: CheckResult): boolean {
+  return c.status === "fail" || c.status === "warn" || (c.status === "unavailable" && (c.essential || c.severity !== "info"));
+}
+
 export function worstStatus(checks: CheckResult[]): CheckStatus {
   return checks.reduce<CheckStatus>((w, c) => {
     // A non-essential, info-level "not performed" should not paint the whole gate grey.
@@ -26,17 +31,16 @@ export function worstStatus(checks: CheckResult[]): CheckStatus {
 export function GateRail({ checks, className }: { checks: CheckResult[]; className?: string }) {
   const groups = GROUP_ORDER.filter((g) => checks.some((c) => c.group === g));
   return (
-    <ol className={cn("grid grid-cols-2 gap-2 sm:grid-cols-4 lg:flex lg:items-stretch lg:gap-0", className)} aria-label="Preflight gates">
-      {groups.map((g, i) => {
+    <ol className={cn("grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2", className)} aria-label="Preflight gates">
+      {groups.map((g) => {
         const inGroup = checks.filter((c) => c.group === g);
         const s = worstStatus(inGroup);
         const tone = s === "pass" ? "border-pass/40" : s === "warn" ? "border-warn/50" : s === "fail" ? "border-fail/60" : "border-na/40 border-dashed";
         return (
-          <li key={g} className="relative lg:flex-1">
-            {i > 0 ? <span className="absolute -left-px top-1/2 hidden h-px w-px lg:block" aria-hidden /> : null}
+          <li key={g} className="min-w-0">
             <a
               href={`#group-${g}`}
-              className={cn("flex h-full items-center gap-2 rounded-[10px] border bg-surface px-3 py-2.5 transition-colors hover:bg-surface-2 lg:mx-1", tone)}
+              className={cn("flex h-full items-center gap-2 rounded-[10px] border bg-surface px-3 py-2.5 transition-colors hover:bg-surface-2", tone)}
             >
               <CheckIcon status={s} />
               <span className="min-w-0">
@@ -100,8 +104,7 @@ function CheckRow({
   onAck?: (id: string, v: boolean) => void;
   ackDisabled?: boolean;
 }) {
-  const important = c.status === "fail" || c.status === "warn" || (c.status === "unavailable" && (c.essential || c.severity !== "info"));
-  const [open, setOpen] = useState(important);
+  const [open, setOpen] = useState(needsAttention(c));
   return (
     <li
       className={cn(
@@ -186,24 +189,67 @@ export function CheckList({
   onAck?: (id: string, v: boolean) => void;
   ackDisabled?: boolean;
 }) {
+  const [showQuiet, setShowQuiet] = useState(false);
   const groups = GROUP_ORDER.filter((g) => checks.some((c) => c.group === g));
+  const attention = checks.filter(needsAttention).length;
+  const quietTotal = checks.length - attention;
   return (
     <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[12px] border border-line bg-surface/60 px-4 py-3 text-[13px]">
+        <p className="text-muted">
+          {attention ? (
+            <>
+              <span className="font-semibold text-text">{attention}</span> {attention === 1 ? "check needs" : "checks need"} your attention.{" "}
+              {quietTotal} found no problem.
+            </>
+          ) : (
+            <>All {checks.length} checks found no problem. That is low observed risk, not a guarantee.</>
+          )}
+        </p>
+        {quietTotal ? (
+          <button type="button" className="link" aria-pressed={showQuiet} onClick={() => setShowQuiet((v) => !v)}>
+            {showQuiet ? "Hide checks without problems" : "Show every check"}
+          </button>
+        ) : null}
+      </div>
       {groups.map((g) => {
         const items = checks
           .filter((c) => c.group === g)
           .sort((a, b) => RANK[b.status] - RANK[a.status]);
+        const loud = items.filter(needsAttention);
+        const quiet = items.filter((c) => !needsAttention(c));
+        const shown = showQuiet ? items : loud;
         return (
           <section key={g} id={`group-${g}`} aria-labelledby={`h-${g}`} className="scroll-mt-24">
             <h3 id={`h-${g}`} className="mb-2 flex items-center gap-2 text-[13px] font-semibold text-muted">
               {CHECK_GROUP_LABELS[g]}
-              <span className="tnum text-faint">({items.length})</span>
+              <span className="tnum font-normal text-faint">({items.length})</span>
             </h3>
-            <ul className="space-y-2">
-              {items.map((c) => (
-                <CheckRow key={c.id} c={c} ack={acks?.[c.id]} onAck={onAck} ackDisabled={ackDisabled} />
-              ))}
-            </ul>
+            {shown.length ? (
+              <ul className="space-y-2">
+                {shown.map((c) => (
+                  <CheckRow key={c.id} c={c} ack={acks?.[c.id]} onAck={onAck} ackDisabled={ackDisabled} />
+                ))}
+              </ul>
+            ) : null}
+            {!showQuiet && quiet.length ? (
+              <button
+                type="button"
+                onClick={() => setShowQuiet(true)}
+                className={cn(
+                  "card-link flex w-full flex-wrap items-center gap-x-4 gap-y-1.5 rounded-[12px] border border-line bg-surface/50 px-4 py-2.5 text-left text-[13px]",
+                  shown.length > 0 && "mt-2",
+                )}
+                aria-label={`Show ${quiet.length} ${CHECK_GROUP_LABELS[g]} checks without problems`}
+              >
+                {quiet.map((c) => (
+                  <span key={c.id} className="inline-flex items-center gap-1.5 text-muted">
+                    <CheckIcon status={c.status} className="size-3.5" />
+                    {c.title}
+                  </span>
+                ))}
+              </button>
+            ) : null}
           </section>
         );
       })}
