@@ -39,7 +39,7 @@ export default function Landing() {
         <div className="relative mx-auto grid max-w-[1240px] items-center gap-12 px-4 pb-16 pt-12 md:px-6 lg:grid-cols-[1.05fr_1fr] lg:gap-16 lg:pb-24 lg:pt-20">
           <div>
             <p className="inline-flex items-center gap-2 rounded-full border border-warn/40 bg-warn/10 px-3 py-1 text-[12px] font-medium text-warn">
-              Testnet: runs on {SUPPORTED_NETWORK.name} with test MUSD that has no value
+              {SUPPORTED_NETWORK.name} only. Test MUSD has no value.
             </p>
             <h1 className="display mt-6 text-[48px] sm:text-[64px] lg:text-[80px]">Check before you send.</h1>
             <p className="mt-6 max-w-[34rem] text-[17px] leading-relaxed text-muted">

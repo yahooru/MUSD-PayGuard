@@ -9,7 +9,7 @@
 | Health | https://musd-payguard.vercel.app/api/health |
 | Public verification API | https://musd-payguard.vercel.app/developers |
 | Verify any payment (no sign-in) | https://musd-payguard.vercel.app/verify |
-| PayGuardRouter (deployed) | [`0x4523152E1033F3a095A89E7AB6f85150a154B958`](https://explorer.test.mezo.org/address/0x4523152E1033F3a095A89E7AB6f85150a154B958), deploy tx [`0x2a22d7…1b07`](https://explorer.test.mezo.org/tx/0x2a22d783b8a9249a9840ec2217b351cc4614bd4c661e8df47006896479f31b07) |
+| PayGuardRouter (deployed, **source verified**) | [`0x6EcC1672D71B5ECF58436D0f3a34A48F695dF84e`](https://explorer.test.mezo.org/address/0x6EcC1672D71B5ECF58436D0f3a34A48F695dF84e?tab=contract), deploy tx [`0xf94b13…3b0b`](https://explorer.test.mezo.org/tx/0xf94b134c8a81a2a1dfaacbee0587ccdc9f8147b624072e2ed0b8b40c56b93b0b) |
 | Original product spec | [`docs/PROJECT_SPEC.md`](docs/PROJECT_SPEC.md) |
 
 > Testnet only. Test MUSD has no monetary value. PayGuard reduces common payment mistakes; it cannot reverse a transfer or prove who controls an address.
@@ -44,7 +44,9 @@ PayGuard sits between the user and their wallet:
 - **Settings**: wallet and network details, security preferences (full-address confirmation, large-payment threshold, explorer history use), notification preferences, privacy information.
 - **Public verification API** `POST/GET /api/v1/verify`: structured verdicts, CORS-open, Postgres-backed rate limit of 30/min per client, docs with curl/JS/Python examples. The `/verify` page wraps it for anyone handed a "proof of payment".
 - **Plain-language assistant**: deterministic explanations generated only from rule results. No external AI; it cannot add findings or soften failures.
-- **Extras**: a ⌘K / Ctrl+K command palette and `g d`/`g s`/… shortcuts, live network status (block height, RPC health), onboarding steps, OG/Twitter images, sitemap and robots, legal pages, 404 and error boundaries, Vercel Analytics and Speed Insights, and a signature React Three Fiber hero.
+- **Guided flow**: a Details → Review → Sign → Verify progress bar on every page of a payment; the security review leads with the checks that need attention and folds the rest into one line per group; a dashboard with quick actions, a fee-BTC warning and a setup checklist that tracks real progress.
+- **Mobile**: a bottom tab bar (Home, Send, Requests, History, More) within thumb reach; every page fits a 375px screen without sideways scrolling.
+- **Extras**: a ⌘K / Ctrl+K command palette and `g d`/`g s`/… shortcuts (shown on hover in the sidebar), live network status (block height, RPC health), OG/Twitter images, sitemap and robots, legal pages, 404 and error boundaries, Vercel Analytics and Speed Insights, and a landing hero that plays an example security review check by check (pure CSS, reduced-motion aware).
 
 ## How it works
 
@@ -121,7 +123,8 @@ Findings are classed as *confirmed technical failure* (fail), *suspicious patter
 | Contract | Address (Mezo Testnet) |
 |---|---|
 | MUSD (Mezo USD, 18 dec, EIP-2612) | [`0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503`](https://explorer.test.mezo.org/token/0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503) |
-| PayGuardRouter (ours) | [`0x4523152E1033F3a095A89E7AB6f85150a154B958`](https://explorer.test.mezo.org/address/0x4523152E1033F3a095A89E7AB6f85150a154B958), deployed in block 16372387, tx [`0x2a22d783…31b07`](https://explorer.test.mezo.org/tx/0x2a22d783b8a9249a9840ec2217b351cc4614bd4c661e8df47006896479f31b07) |
+| PayGuardRouter (ours, current) | [`0x6EcC1672D71B5ECF58436D0f3a34A48F695dF84e`](https://explorer.test.mezo.org/address/0x6EcC1672D71B5ECF58436D0f3a34A48F695dF84e?tab=contract), deployed 2026-11-13 in block 16749291, tx [`0xf94b134c…93b0b`](https://explorer.test.mezo.org/tx/0xf94b134c8a81a2a1dfaacbee0587ccdc9f8147b624072e2ed0b8b40c56b93b0b). Source **verified** on Blockscout |
+| PayGuardRouter (retired) | [`0x4523152E1033F3a095A89E7AB6f85150a154B958`](https://explorer.test.mezo.org/address/0x4523152E1033F3a095A89E7AB6f85150a154B958), block 16372387. Same source. No longer used for new payments, but its receipts still verify and its registry is still read by the duplicate check |
 | MUSD system contracts (blocked as destinations) | BorrowerOperations `0xCdF7…beE5`, TroveManager `0xE47c…6bb0`, PriceFeed `0x86bC…9366`, StabilityPool `0x1CCA…680e`, HintHelpers `0x4e4c…BCF6`, SortedTroves `0x722E…68fA`, InterestRateManager `0xD4D6…7f37` |
 | Mainnet MUSD (reference only, never used) | `0xdD468A1DDc392dcdbEf6db6e34E89AA338F9F186` |
 
@@ -138,11 +141,11 @@ Network config lives only in `src/config/chains.ts` and contract config only in 
 - **Design choice**: duplicate keying is per payer, not `paid[recipient][ref]` as first sketched. A global key would let a stranger front-run a dust payment with someone's invoice reference and block the real payer (griefing). Merchants get a griefing-resistant aggregate instead: `totalPaidTo[recipient][ref]` (compare with the invoice amount) and the `InvoicePaid(payer, recipient, invoiceRef, amount, totalPaidForRef)` event.
 - Invoice reference = `keccak256(utf8(NFKC(ref).trim().collapseSpaces().toUpperCase()))`, shared by the app, the contract tests and the API.
 - Rejects the zero address, the router, the token and self as recipients, zero amounts and empty references. No `receive`/`fallback`.
-- Blockscout source verification was attempted three ways and rejected by the explorer's verifier without a reason; the on-chain creation bytecode was checked byte-for-byte against the local artifact plus constructor argument. The standard-JSON input is in `contracts/verification/`.
+- The current deployment's source is **verified on Blockscout** (`is_fully_verified: true`, solc 0.8.28, london, 200 runs). The first deployment could not be verified at the time; it is kept as a retired router (`PAYGUARD_ROUTER_LEGACY` in `src/config/contracts.ts`) so receipts for payments made through it still verify, and both addresses are blocked as payment destinations. The standard-JSON input is in `contracts/verification/`.
 
 ## Tech stack
 
-Next.js 16 (App Router, Turbopack) · React 19 · TypeScript 5.9 strict · Tailwind CSS 4 · Radix primitives (hand-styled) · wagmi 2 + viem 2 + TanStack Query 5 · React Three Fiber 9 + drei · Neon Postgres (`@neondatabase/serverless`, raw SQL) · jose (JWT) · zod 4 · cmdk · sonner · qrcode.react · Vitest 3 · Hardhat 2 + OpenZeppelin · Vercel (functions, cron, analytics).
+Next.js 16 (App Router, Turbopack) · React 19 · TypeScript 5.9 strict · Tailwind CSS 4 · Radix primitives (hand-styled) · wagmi 2 + viem 2 + TanStack Query 5 · Neon Postgres (`@neondatabase/serverless`, raw SQL) · jose (JWT) · zod 4 · cmdk · sonner · qrcode.react · Vitest 3 · Hardhat 2 + OpenZeppelin · Vercel (functions, cron, analytics).
 
 Typography: Archivo with its width axis (expanded for display) for an instrument-panel voice, plus JetBrains Mono for addresses and hashes, grouped in 4-character blocks for comparison. Palette: navy-black hull, signal cyan for actions, restrained violet for on-chain/registry. Status is never colour-only: each state has its own icon shape (circle-check, triangle, octagon, dashed circle) and a text label.
 
@@ -177,12 +180,17 @@ Typography: Archivo with its width axis (expanded for display) for an instrument
 
 | Suite | Command | Latest result |
 |---|---|---|
-| Unit (engine, verifier, sign guard, amounts, refs, status machine, gas policy) | `npm test` | **109 passed** (4 files) |
+| Unit (engine, verifier incl. retired-router receipts, sign guard, amounts, refs, status machine, gas policy, DB retry rules) | `npm test` | **119 passed** (5 files) |
 | Contract (Hardhat) | `cd contracts && npx hardhat test` | **23 passing** |
-| Type check / lint / build | `npm run typecheck`, `npm run lint`, `npm run build` | 0 type errors, 0 lint errors, build OK |
-| Live e2e on Mezo Testnet vs **production** | `E2E_BASE_URL=https://musd-payguard.vercel.app npm run e2e:testnet` | **65 passed, 0 failed** |
+| Type check / lint / build | `npm run typecheck`, `npm run lint`, `npm run build` | 0 type errors, 0 lint errors (4 warnings), build OK |
+| Live e2e on Mezo Testnet, unfunded mode, vs a local **production build** (2026-11-13, new router) | `TEST_WALLETS_FILE=… E2E_BASE_URL=http://localhost:3000 npm run e2e:testnet` | **50 passed, 0 failed**; real-transfer steps skipped (no test MUSD) |
+| Live e2e on Mezo Testnet, funded mode, vs **production** (2026-10-26, first router) | `E2E_BASE_URL=https://musd-payguard.vercel.app npm run e2e:testnet` | **65 passed, 0 failed** |
 
-The live e2e (`scripts/e2e-testnet.ts`) signs in with SIWE using the payguard test wallets, then walks spec §22 and the negative cases:
+The live e2e (`scripts/e2e-testnet.ts`) reads two keys from `TEST_WALLETS_FILE` (`{"payguard":[{"role":"alice","privateKey":"0x…"},{"role":"bob",…}]}`, kept outside the repo) and picks a mode from alice's MUSD balance.
+
+**Unfunded mode** (alice holds < 4 MUSD) sends no transaction at all. It checks the new router's code, token and explorer verification; real-balance preflights and every structural check; that the server refuses blocked, unreviewed and stale payments; session isolation; lookalike, checksum, wrong-chain and router-as-recipient blocks; payment requests; `payWithPermit` simulated with a real permit signature (it passes the allowance and stops at the balance); and the public API against earlier real payments, including one made through the retired router, down to a 1-wei amount difference.
+
+**Funded mode** (alice holds ≥ 4 MUSD, spends about 3) additionally walks spec §22 with real payments:
 
 - Health; 401 when unauthenticated; SIWE replay rejected; CSRF rejected.
 - Bob saved as a recipient; alice's real balance read by the preflight.
@@ -216,7 +224,7 @@ npm test
 
 Environment (see `.env.example`): `DATABASE_URL`, `SESSION_SECRET` (48+ random bytes), `CRON_SECRET`, plus optional `NEXT_PUBLIC_SITE_URL` and `MEZO_RPC_URL`. The e2e script reads `TEST_WALLETS_FILE` and `E2E_BASE_URL` at runtime.
 
-Contracts: `cd contracts && npm install && npx hardhat test`. To deploy, run `npx hardhat run scripts/deploy.ts --network mezotestnet`; it reads the key at runtime from `DEPLOYER_ENV_FILE`, sets an explicit gas limit and retries on nonce errors.
+Contracts: `cd contracts && npm install && npx hardhat test`. To deploy, put `PRIVATE_KEY=0x…` in `contracts/.env.deployer` (git-ignored) or point `DEPLOYER_ENV_FILE` at another file, then run `npx hardhat run scripts/deploy.ts --network mezotestnet`. It sanity-checks the MUSD token, sets an explicit gas limit, retries on nonce errors, verifies `token()` after deployment and records the previous deployment under `previousDeployments`. Verify the source with `npx hardhat verify --network mezotestnet <address> 0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503`, then update `PAYGUARD_ROUTER` (and move the old one to `PAYGUARD_ROUTER_LEGACY`) in `src/config/contracts.ts`.
 
 Deploy: `vercel deploy --prod --yes`. `vercel.json` pins the Next.js framework and a daily cron (`0 6 * * *`, `CRON_SECRET`-protected) that re-verifies unresolved payments.
 
@@ -240,9 +248,9 @@ Deploy: `vercel deploy --prod --yes`. `vercel.json` pins the Next.js framework a
 - Background verification runs **once per day** (Vercel Hobby cron); while a payment page is open it polls every 4 s, and *Check now* forces a check.
 - The public Mezo RPC is load-balanced and can briefly return a mined transaction without its receipt; the verifier retries, then reports *pending* rather than guessing.
 - Rejecting a signature in a real wallet is handled in the UI (`UserRejectedRequestError`, code 4001) but cannot be automated in the e2e. The e2e instead asserts that an authorized-but-unsigned payment records nothing.
-- The PayGuardRouter is unaudited and its source is not verified on Blockscout (the explorer rejected all attempts; bytecode was matched locally). The direct-transfer path does not depend on it.
+- The PayGuardRouter is unaudited (its source is verified on Blockscout). The direct-transfer path does not depend on it.
 - Notifications are in-app only (no email or webhooks yet). One user corresponds to one wallet.
-- No public GitHub repository was created, per the build brief.
+- The database connection retries transient network failures only where it is provably safe (connection never opened, or a read-only query); a write interrupted mid-request fails with a clear error rather than risk running twice.
 
 ## Pitch and roadmap
 
