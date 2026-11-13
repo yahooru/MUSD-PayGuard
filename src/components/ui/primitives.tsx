@@ -140,8 +140,12 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<H
   return <textarea ref={ref} className={cn(inputBase, "py-2.5 min-h-20", className)} {...rest} />;
 });
 
+/**
+ * Loading placeholder. Rendered as a block-level <span> so it is valid anywhere, including
+ * inside a <p> (a <div> there is invalid HTML and breaks hydration).
+ */
 export function Skeleton({ className }: { className?: string }) {
-  return <div className={cn("skeleton", className)} aria-hidden />;
+  return <span className={cn("skeleton block", className)} aria-hidden />;
 }
 
 export function Spinner({ className }: { className?: string }) {
