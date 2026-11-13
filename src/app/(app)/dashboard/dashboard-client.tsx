@@ -100,7 +100,7 @@ export function DashboardClient() {
     <div className="space-y-8">
       <PageHeader title="Dashboard" lede="Your MUSD, your pending payments and everything PayGuard flagged recently." />
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <section className="hull relative overflow-hidden p-5 md:p-6 lg:col-span-2" aria-labelledby="balance-h">
           <div className="grid-bg pointer-events-none absolute inset-0 opacity-50" aria-hidden />
           <div className="relative">
@@ -223,7 +223,7 @@ export function DashboardClient() {
         </section>
       ) : null}
 
-      <div className="grid gap-8 lg:grid-cols-[1.35fr_1fr]">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
         <div className="space-y-8">
           {d && d.pending.length > 0 ? (
             <section aria-labelledby="pending-h">
