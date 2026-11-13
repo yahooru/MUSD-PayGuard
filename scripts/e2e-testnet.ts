@@ -1,29 +1,42 @@
 /**
  * Live end-to-end test against a running PayGuard (local `next start` or production) and the
- * real Mezo Testnet. Spends a few test MUSD from the payguard "alice" wallet.
+ * real Mezo Testnet.
  *
- *   E2E_BASE_URL=http://localhost:3000 npx tsx scripts/e2e-testnet.ts
+ *   TEST_WALLETS_FILE=/path/wallets.json E2E_BASE_URL=http://localhost:3000 npx tsx scripts/e2e-testnet.ts
  *
- * Test wallet keys are read at runtime from TEST_WALLETS_FILE (never copied into the project,
- * never printed).
+ * Two modes, chosen from alice's on-chain MUSD balance:
+ *  - funded (>= 4 MUSD): the full suite, including real direct and PayGuardRouter payments
+ *    (spends about 3 test MUSD);
+ *  - unfunded: everything that does not move tokens. It sends NO transaction: preflights run
+ *    against the live RPC, the router call is simulated with a real permit signature, and the
+ *    public API is checked against earlier real payments (including one made through the
+ *    retired router).
+ *
+ * Wallets file: { "payguard": [ { "role": "alice", "privateKey": "0x…" }, { "role": "bob", … } ] }.
+ * Keys are read at runtime (never copied into the project, never printed).
  */
 import { readFileSync, writeFileSync } from "node:fs";
-import { createPublicClient, createWalletClient, http, parseSignature, parseUnits, type Hex } from "viem";
+import { createPublicClient, createWalletClient, decodeEventLog, http, parseSignature, parseUnits, type Hex } from "viem";
 import { privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
 import { createSiweMessage } from "viem/siwe";
 import { MEZO_TESTNET, explorer, mezoTestnet } from "../src/config/chains";
-import { MUSD, PAYGUARD_ROUTER, gasLimitFor, musdAbi, routerAbi } from "../src/config/contracts";
+import { MUSD, PAYGUARD_ROUTER, PAYGUARD_ROUTER_LEGACY, gasLimitFor, musdAbi, routerAbi } from "../src/config/contracts";
 import { formatAmount } from "../src/lib/amount";
+import { invoiceRefHash } from "../src/lib/invoice";
 
 const BASE = (process.env.E2E_BASE_URL ?? "http://localhost:3000").replace(/\/$/, "");
-const WALLETS =
-  process.env.TEST_WALLETS_FILE ??
-  "C:/Users/nikku/AppData/Local/Temp/claude/C--Users-nikku-Desktop/120e793a-eda2-49e5-92e3-e45940332298/scratchpad/test-wallets.json";
+const WALLETS = process.env.TEST_WALLETS_FILE ?? "";
+/** Real payments made through PayGuard earlier, used to check the public API without spending. */
+const HISTORIC = {
+  direct: "0xbae1ee76315a66277c252bda7f951c350f6b605cc7e7f00f7ba15256d4a95b2c" as Hex,
+  legacyRouter: { hash: "0x4139a5a1c5e4adf5701dd29eb68e74957a04d97326935dc14dc8b75ff41accfc" as Hex, invoiceRef: "REQ-MVPC07MU" },
+};
 const RUN = Date.now().toString(36).toUpperCase();
 const pub = createPublicClient({ chain: mezoTestnet, transport: http(MEZO_TESTNET.rpcUrl, { retryCount: 3 }) });
 
 /* ------------------------------------------------------------ reporting */
 const results: { step: string; ok: boolean; detail: string }[] = [];
+const skipped: string[] = [];
 const txs: Record<string, string> = {};
 function record(step: string, ok: boolean, detail = "") {
   results.push({ step, ok, detail });
@@ -97,6 +110,7 @@ class Actor {
 }
 
 function loadAccounts() {
+  if (!WALLETS) throw new Error("Set TEST_WALLETS_FILE to a wallets JSON file (see the header of this script).");
   const w = JSON.parse(readFileSync(WALLETS, "utf8")) as Record<string, { role: string; address: string; privateKey: string }[]>;
   const find = (role: string) => {
     const e = w.payguard?.find((x) => x.role === role);
@@ -182,6 +196,12 @@ async function main() {
   }
   expect(rec.body.recipient?.id, "bob saved in recipient book", rec.body.recipient?.id);
   const bobId = rec.body.recipient.id as string;
+
+  if (startBal < parseUnits("4", 18)) {
+    console.log(`alice holds ${formatAmount(startBal)} MUSD (< 4): running the UNFUNDED suite. No transaction is sent.`);
+    await unfundedSuite({ alice, bob, aliceAcc, bobAcc, bobId, startBal });
+    return;
+  }
 
   // 3. A previously confirmed payment to duplicate. Reuse one from history when it exists
   //    (saves test MUSD across runs); otherwise make a real 1 MUSD payment first.
@@ -374,6 +394,166 @@ async function main() {
   console.log(`alice MUSD ${formatAmount(startBal)} → ${formatAmount(endBal)} (spent ${formatAmount(startBal - endBal)})`);
 }
 
+/* ------------------------------------------------------------ unfunded suite */
+async function permitArgs(owner: PrivateKeyAccount, to: Hex, amount: bigint, refHash: Hex) {
+  const nonce = await pub.readContract({ address: MUSD.address, abi: musdAbi, functionName: "nonces", args: [owner.address] });
+  const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
+  const sig = await owner.signTypedData({
+    domain: { name: MUSD.permit.name, version: MUSD.permit.version, chainId: MEZO_TESTNET.chainId, verifyingContract: MUSD.address },
+    types: { Permit: [ { name: "owner", type: "address" }, { name: "spender", type: "address" }, { name: "value", type: "uint256" }, { name: "nonce", type: "uint256" }, { name: "deadline", type: "uint256" } ] },
+    primaryType: "Permit",
+    message: { owner: owner.address, spender: PAYGUARD_ROUTER.address, value: amount, nonce, deadline },
+  });
+  const { r, s, v, yParity } = parseSignature(sig);
+  return [to, amount, refHash, deadline, Number(v ?? BigInt(yParity + 27)), r, s] as const;
+}
+
+async function unfundedSuite({
+  alice,
+  bob,
+  aliceAcc,
+  bobAcc,
+  bobId,
+  startBal,
+}: {
+  alice: Actor;
+  bob: Actor;
+  aliceAcc: PrivateKeyAccount;
+  bobAcc: PrivateKeyAccount;
+  bobId: string;
+  startBal: bigint;
+}) {
+  // A. The newly deployed router, read straight from the chain and the explorer.
+  const code = await pub.getCode({ address: PAYGUARD_ROUTER.address });
+  const token = await pub.readContract({ address: PAYGUARD_ROUTER.address, abi: routerAbi, functionName: "token" });
+  expect(!!code && code.length > 2 && token.toLowerCase() === MUSD.address.toLowerCase(), "new PayGuardRouter has code on-chain and routes MUSD", PAYGUARD_ROUTER.address);
+  for (const legacy of PAYGUARD_ROUTER_LEGACY) {
+    const lt = await pub.readContract({ address: legacy.address, abi: routerAbi, functionName: "token" });
+    expect(lt.toLowerCase() === MUSD.address.toLowerCase(), "retired PayGuardRouter is still readable on-chain", legacy.address);
+  }
+  const bs = await fetch(`${MEZO_TESTNET.explorerApiUrl}/smart-contracts/${PAYGUARD_ROUTER.address}`).then((r) => r.json()).catch(() => null);
+  soft(bs?.is_verified === true && bs?.name === "PayGuardRouter", "router source is verified on the Mezo explorer", bs ? `${bs.name} verified=${bs.is_verified}` : "explorer unreachable");
+
+  // B. Preflight against the live RPC: real balances, every structural check passes, funds block it.
+  const ref = `INV-${RUN}-U1`;
+  const p1 = await draftAndReview(alice, { recipient: bobAcc.address, amount: "1", invoiceRef: ref, selectedRecipientId: bobId });
+  const bal = checkOf(p1.assessment, "funds.balance");
+  expect(bal?.status === "fail" && bal.evidence.some((e: any) => e.value.startsWith(formatAmount(startBal, { maxFraction: 6 }))), "preflight read alice's REAL MUSD balance and blocks the shortfall", bal?.evidence?.[0]?.value);
+  for (const id of ["recipient.format", "recipient.checksum", "recipient.destination", "network.wallet", "network.payment", "token.config", "token.onchain", "recipient.book"]) {
+    expect(checkOf(p1.assessment, id)?.status === "pass", `preflight ${id} passed`);
+  }
+  soft(checkOf(p1.assessment, "funds.gas")?.status === "pass", "alice's testnet BTC covers the network fee", checkOf(p1.assessment, "funds.gas")?.evidence?.[0]?.value);
+  expect(checkOf(p1.assessment, "simulation.call")?.status === "fail", "eth_call simulation of the exact transfer fails without MUSD", checkOf(p1.assessment, "simulation.call")?.evidence?.[0]?.value);
+  expect(checkOf(p1.assessment, "duplicates.onchain_registry")?.status === "pass", "new router registry read: invoice not paid");
+  expect(p1.assessment.decision === "blocked", "insufficient MUSD → sending blocked");
+  const blockedAuth = await authorize(alice, p1.draft.id, p1.assessment.payloadHash, p1.assessment.checks.map((c: any) => c.id));
+  expect(blockedAuth.status === 409 && blockedAuth.body.error.code === "blocked", "server re-check refuses to authorize a blocked payment, even with every acknowledgement");
+
+  // C. Review integrity: editing invalidates the review, the old hash is refused.
+  const patched = await alice.req("PATCH", `/api/drafts/${p1.draft.id}`, { invoiceRef: `INV-${RUN}-U2` });
+  expect(patched.status === 200 && patched.body.draft.status === "draft", "editing invalidates the review");
+  const unreviewed = await authorize(alice, p1.draft.id, p1.assessment.payloadHash, []);
+  expect(unreviewed.status === 409 && unreviewed.body.error.code === "not_reviewed", "edited payment cannot be signed before a new review");
+  const again = await alice.req("POST", `/api/drafts/${p1.draft.id}/preflight`, { walletChainId: MEZO_TESTNET.chainId });
+  expect(again.body.assessment.payloadHash !== p1.assessment.payloadHash, "new review is bound to a new payload hash");
+  const stale = await authorize(alice, p1.draft.id, p1.assessment.payloadHash, []);
+  expect(stale.status === 409 && stale.body.error.code === "review_stale", "signing with the OLD reviewed hash is refused");
+
+  // D. Session survival and isolation.
+  const fresh = new Actor("alice-2", aliceAcc);
+  await fresh.login();
+  const refetch = await fresh.req("GET", `/api/drafts/${p1.draft.id}`);
+  expect(refetch.status === 200 && refetch.body.draft.id === p1.draft.id, "draft and its review survive a new session");
+  await bob.login();
+  const peek = await bob.req("GET", `/api/drafts/${p1.draft.id}`);
+  expect(peek.status === 404, "another wallet cannot read alice's draft (404)");
+  await alice.req("DELETE", `/api/drafts/${p1.draft.id}`);
+
+  // E. Negative preflight cases.
+  const bad = await draftAndReview(alice, { recipient: "0x123", amount: "1", invoiceRef: `INV-${RUN}-BAD` });
+  expect(checkOf(bad.assessment, "recipient.format")?.status === "fail" && bad.assessment.decision === "blocked", "invalid address → blocked");
+  const wrongChain = await draftAndReview(alice, { recipient: bobAcc.address, amount: "1", invoiceRef: `INV-${RUN}-WC` }, 1);
+  expect(checkOf(wrongChain.assessment, "network.wallet")?.status === "fail", "wallet on wrong chain (1) → blocked");
+  const tampered = bobAcc.address.replace(/[a-f]/, (c) => c.toUpperCase()) === bobAcc.address ? bobAcc.address.replace(/[A-F]/, (c) => c.toLowerCase()) : bobAcc.address.replace(/[a-f]/, (c) => c.toUpperCase());
+  const cs = await draftAndReview(alice, { recipient: tampered, amount: "1" });
+  expect(checkOf(cs.assessment, "recipient.checksum")?.status === "fail", "mixed-case address with invalid EIP-55 checksum → failed");
+  const look = `0x${bobAcc.address.slice(2, 6)}${"7".repeat(32)}${bobAcc.address.slice(-4)}`;
+  const lk = await draftAndReview(alice, { recipient: look, amount: "1", invoiceRef: `INV-${RUN}-LK` });
+  const lkc = checkOf(lk.assessment, "recipient.lookalike");
+  expect(lkc?.status === "warn" && lkc.severity === "critical", "address-poisoning lookalike of saved bob flagged (critical)", lkc?.explanation?.slice(0, 80));
+  const tokenSelf = await draftAndReview(alice, { recipient: MUSD.address, amount: "1" });
+  expect(checkOf(tokenSelf.assessment, "recipient.destination")?.status === "fail", "paying the MUSD token contract itself → blocked");
+  const toRouter = await draftAndReview(alice, { recipient: PAYGUARD_ROUTER.address, amount: "1" });
+  expect(checkOf(toRouter.assessment, "recipient.destination")?.status === "fail", "paying the new PayGuardRouter itself → blocked");
+  const toOld = await draftAndReview(alice, { recipient: PAYGUARD_ROUTER_LEGACY[0].address, amount: "1" });
+  expect(checkOf(toOld.assessment, "recipient.destination")?.status === "fail", "paying the retired PayGuardRouter → blocked");
+  for (const d of [bad, wrongChain, cs, lk, tokenSelf, toRouter, toOld]) await alice.req("DELETE", `/api/drafts/${d.draft.id}`);
+
+  // F. Payment request + router path up to the signature.
+  const reqRef = `REQ-${RUN}`;
+  const created = await bob.req("POST", "/api/requests", { amount: "1", invoiceRef: reqRef, description: "e2e router invoice (unfunded)", expiresInDays: 7, payer: aliceAcc.address });
+  expect(created.status === 201, "bob created a payment request", created.body.request?.id);
+  const dupReq = await bob.req("POST", "/api/requests", { amount: "1", invoiceRef: reqRef.toLowerCase() });
+  expect(dupReq.status === 409 && dupReq.body.error.code === "duplicate_reference", "duplicate request reference rejected (case-insensitive)");
+  const reqId = created.body.request.id as string;
+  const opened = await alice.req("GET", `/api/requests/${reqId}`);
+  expect(opened.status === 200 && opened.body.request?.id === reqId, "request opens for the payer and is re-validated", opened.body.assessment?.summary);
+  const incoming = await alice.req("GET", "/api/requests");
+  soft(incoming.body.incoming?.some((r: any) => r.id === reqId), "request appears in alice's incoming list");
+  const rp = await draftAndReview(alice, { recipient: bobAcc.address, amount: "1", invoiceRef: reqRef, method: "router", requestId: reqId, selectedRecipientId: bobId });
+  expect(["request.status", "request.amount", "request.recipient", "request.token", "request.network"].every((id) => checkOf(rp.assessment, id)?.status === "pass"), "router payment matches the request (status, amount, recipient, token, network)");
+  const args = await permitArgs(aliceAcc, bobAcc.address, parseUnits("1", 18), invoiceRefHash(reqRef));
+  let revert = "";
+  try {
+    await pub.simulateContract({ address: PAYGUARD_ROUTER.address, abi: [...routerAbi, ...musdAbi.filter((x) => x.type === "error")], functionName: "payWithPermit", args, account: aliceAcc.address });
+    revert = "no revert";
+  } catch (e: any) {
+    revert = e?.cause?.data?.errorName ?? e?.cause?.reason ?? String(e?.shortMessage ?? e).slice(0, 120);
+  }
+  expect(revert === "ERC20InsufficientBalance", "new router: payWithPermit simulated with a real permit gets past the allowance and stops at the balance", revert);
+  const cancelled = await bob.req("PATCH", `/api/requests/${reqId}`, { action: "cancel" });
+  expect(cancelled.status === 200, "bob cancelled the request (it was never paid)");
+  await alice.req("DELETE", `/api/drafts/${rp.draft.id}`);
+
+  // G. Public verification API against real, earlier PayGuard payments.
+  const dRc = await pub.getTransactionReceipt({ hash: HISTORIC.direct });
+  const dTr = dRc.logs
+    .filter((l) => l.address.toLowerCase() === MUSD.address.toLowerCase())
+    .map((l) => decodeEventLog({ abi: musdAbi, data: l.data, topics: l.topics }))
+    .find((e) => e.eventName === "Transfer")!.args as { from: Hex; to: Hex; value: bigint };
+  const vOk = await alice.req("POST", "/api/v1/verify", { txHash: HISTORIC.direct, expected: { recipient: dTr.to, amount: formatAmount(dTr.value), from: dTr.from } });
+  expect(vOk.body.verdict === "verified" && vOk.body.transaction?.calledContract === "MUSD", "public API: earlier direct payment → verified", HISTORIC.direct);
+  const vAmt = await alice.req("POST", "/api/v1/verify", { txHash: HISTORIC.direct, expected: { recipient: dTr.to, amount: formatAmount(dTr.value + 1n) } });
+  expect(vAmt.body.verdict === "mismatch", "public API: wrong amount → mismatch", vAmt.body.reason);
+  const vTo = await alice.req("POST", "/api/v1/verify", { txHash: HISTORIC.direct, expected: { recipient: aliceAcc.address, amount: formatAmount(dTr.value) } });
+  expect(vTo.body.verdict === "mismatch", "public API: wrong recipient → mismatch");
+  const vNf = await alice.req("GET", `/api/v1/verify?txHash=0x${"12".repeat(32)}&recipient=${bobAcc.address}&amount=2`);
+  expect(vNf.body.verdict === "not_found", "public API: unknown hash → not_found");
+
+  const lRc = await pub.getTransactionReceipt({ hash: HISTORIC.legacyRouter.hash });
+  const inv = lRc.logs
+    .filter((l) => l.address.toLowerCase() === PAYGUARD_ROUTER_LEGACY[0].address.toLowerCase())
+    .map((l) => decodeEventLog({ abi: routerAbi, data: l.data, topics: l.topics }))
+    .find((e) => e.eventName === "InvoicePaid")!.args as { payer: Hex; recipient: Hex; invoiceRef: Hex; amount: bigint };
+  expect(inv.invoiceRef === invoiceRefHash(HISTORIC.legacyRouter.invoiceRef), "retired-router payment carries the expected invoice reference hash on-chain");
+  const vLegacy = await alice.req("POST", "/api/v1/verify", {
+    txHash: HISTORIC.legacyRouter.hash,
+    expected: { recipient: inv.recipient, amount: formatAmount(inv.amount), invoiceRef: HISTORIC.legacyRouter.invoiceRef },
+  });
+  expect(
+    vLegacy.body.verdict === "verified" && vLegacy.body.transaction?.calledContract === "PayGuardRouter" && vLegacy.body.invoice?.recordedOnChain === true,
+    "public API: payment through the RETIRED router still verifies, invoice reference included",
+    vLegacy.body.reason,
+  );
+  const vLegacyBad = await alice.req("POST", "/api/v1/verify", {
+    txHash: HISTORIC.legacyRouter.hash,
+    expected: { recipient: inv.recipient, amount: formatAmount(inv.amount), invoiceRef: `${HISTORIC.legacyRouter.invoiceRef}-X` },
+  });
+  expect(vLegacyBad.body.verdict === "mismatch", "public API: wrong invoice reference on a router payment → mismatch");
+  skipped.push("Funded steps (real direct + router payments, receipt verification of new payments, AlreadyPaid on re-pay): alice has no test MUSD. Fund alice with >= 4 MUSD to run them.");
+  console.log(`SKIP  ${skipped[skipped.length - 1]}`);
+}
+
 main()
   .catch((e) => {
     record("unexpected error", false, e instanceof Error ? e.message.slice(0, 300) : String(e));
@@ -384,6 +564,7 @@ main()
     console.log(`\n${passed} passed, ${failed} failed`);
     for (const [k, h] of Object.entries(txs)) console.log(`tx ${k}: ${explorer.tx(h)}`);
     const out = `e2e-results-${new URL(BASE).host.replace(/[^a-z0-9.-]/gi, "_")}.json`;
-    writeFileSync(out, JSON.stringify({ base: BASE, run: RUN, at: new Date().toISOString(), passed, failed, txs, results }, null, 2));
+    if (skipped.length) console.log(`${skipped.length} group(s) skipped`);
+    writeFileSync(out, JSON.stringify({ base: BASE, run: RUN, at: new Date().toISOString(), passed, failed, skipped, txs, results }, null, 2));
     process.exitCode = failed ? 1 : 0;
   });
