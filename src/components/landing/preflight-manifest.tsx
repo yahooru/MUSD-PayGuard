@@ -2,7 +2,7 @@ import { CircleCheck, OctagonAlert, TriangleAlert } from "lucide-react";
 import type { CSSProperties } from "react";
 import { getAddress } from "viem";
 import { groupHex } from "@/lib/format";
-import { cn } from "../ui/primitives";
+import { cn } from "@/lib/cn";
 
 /**
  * The landing hero: an example of the review PayGuard puts in front of a payment.
@@ -49,9 +49,9 @@ export function PreflightManifest({ className }: { className?: string }) {
           </p>
           <div className="mt-3 grid gap-1 text-[13px] sm:grid-cols-[88px_1fr] sm:gap-x-3">
             <span className="text-faint">To</span>
-            <span className="mono text-[13px] leading-6 tracking-[0.02em]">
+            <span className="mono flex min-w-0 flex-wrap gap-x-[0.45em] text-[13px] leading-6 tracking-[0.02em]">
               {groups.map((g, i) => (
-                <span key={i} className={cn(i === 0 ? "text-faint" : "text-text", "mr-[0.4em]")}>
+                <span key={i} className={i === 0 ? "text-faint" : "text-text"}>
                   {g}
                 </span>
               ))}

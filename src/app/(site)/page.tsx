@@ -218,7 +218,7 @@ export default function Landing() {
               runs.
             </p>
           </div>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex shrink-0 flex-wrap gap-3">
             <ButtonLink href="/send" variant="primary" size="lg" icon={<ShieldCheck className="size-4" aria-hidden />}>
               Start a checked payment
             </ButtonLink>

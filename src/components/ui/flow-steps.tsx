@@ -1,5 +1,5 @@
 import { Check, X } from "lucide-react";
-import { cn } from "./primitives";
+import { cn } from "@/lib/cn";
 
 /**
  * Where the user is in a payment: the same four steps on the send, review and
