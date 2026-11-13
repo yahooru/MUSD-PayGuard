@@ -21,7 +21,8 @@ export interface ExpectedPayment {
   invoiceRefHash?: Hex | null;
   /** Contract that the transaction must call: the token (direct) or the router. */
   method?: "direct" | "router" | "any";
-  routerAddress?: string;
+  /** PayGuardRouter address, or every recognised router (current and retired deployments). */
+  routerAddress?: string | readonly string[];
   requiredConfirmations: number;
 }
 
@@ -118,11 +119,20 @@ export function decodeTransfers(logs: readonly ChainLog[], token: string): Match
   return out;
 }
 
-function decodeInvoicePaid(logs: readonly ChainLog[], router: string | undefined) {
-  if (!router) return [] as { payer: string; recipient: string; invoiceRef: Hex; amount: bigint }[];
+function routerList(router: string | readonly string[] | undefined): readonly string[] {
+  if (!router) return [];
+  return typeof router === "string" ? [router] : router;
+}
+
+function isRouter(address: string | null | undefined, router: string | readonly string[] | undefined): boolean {
+  return routerList(router).some((r) => sameAddress(address, r));
+}
+
+function decodeInvoicePaid(logs: readonly ChainLog[], router: string | readonly string[] | undefined) {
   const out: { payer: string; recipient: string; invoiceRef: Hex; amount: bigint }[] = [];
+  if (!routerList(router).length) return out;
   for (const log of logs) {
-    if (!sameAddress(log.address, router)) continue;
+    if (!isRouter(log.address, router)) continue;
     try {
       const ev = decodeEventLog({ abi: routerAbi, data: log.data, topics: log.topics as [Hex, ...Hex[]] });
       if (ev.eventName === "InvoicePaid") {
@@ -179,9 +189,9 @@ export function verifyPayment({ expected, tx, receipt, latestBlock }: VerifyInpu
   const method = expected.method ?? "direct";
   const targetOk =
     method === "any"
-      ? sameAddress(target, expected.token) || (expected.routerAddress ? sameAddress(target, expected.routerAddress) : false)
+      ? sameAddress(target, expected.token) || isRouter(target, expected.routerAddress)
       : method === "router"
-        ? sameAddress(target, expected.routerAddress)
+        ? isRouter(target, expected.routerAddress)
         : sameAddress(target, expected.token);
   if (!targetOk) {
     steps.push({

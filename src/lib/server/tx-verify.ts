@@ -4,7 +4,7 @@ import {
   type Hash,
 } from "viem";
 import { SUPPORTED_NETWORK } from "../../config/chains";
-import { MUSD, PAYGUARD_ROUTER } from "../../config/contracts";
+import { ALL_ROUTER_ADDRESSES, MUSD } from "../../config/contracts";
 import { formatAmount } from "../amount";
 import { nextStatus, STATUS_LABEL, type TxStatus, type VerificationOutcome } from "../engine/status";
 import { invoiceRefHash } from "../invoice";
@@ -76,7 +76,7 @@ export function expectedFromRow(r: Row): ExpectedPayment {
     amount: BigInt(String(r.amount)),
     from: r.from_address,
     method: r.method === "router" ? "router" : "direct",
-    routerAddress: PAYGUARD_ROUTER.address,
+    routerAddress: ALL_ROUTER_ADDRESSES,
     invoiceRefHash: r.method === "router" && r.invoice_ref ? invoiceRefHash(r.invoice_ref) : null,
     requiredConfirmations: SUPPORTED_NETWORK.requiredConfirmations,
   };

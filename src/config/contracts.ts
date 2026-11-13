@@ -54,11 +54,38 @@ export const MUSD: TokenConfig = (() => {
  */
 export const PAYGUARD_ROUTER = {
   chainId: MEZO_TESTNET_ID,
-  address: getAddress("0x4523152E1033F3a095A89E7AB6f85150a154B958"),
-  deployTx: "0x2a22d783b8a9249a9840ec2217b351cc4614bd4c661e8df47006896479f31b07" as `0x${string}`,
-  deployBlock: 16372387,
-  sourceVerifiedOnExplorer: false,
+  address: getAddress("0x6EcC1672D71B5ECF58436D0f3a34A48F695dF84e"),
+  deployTx: "0xf94b134c8a81a2a1dfaacbee0587ccdc9f8147b624072e2ed0b8b40c56b93b0b" as `0x${string}`,
+  deployBlock: 16749291,
+  deployedAt: "2026-11-13",
+  sourceVerifiedOnExplorer: true,
 } as const;
+
+/**
+ * Earlier PayGuardRouter deployments (same source, same token). New payments never use them,
+ * but receipts and the public verification API still recognise their InvoicePaid events, and
+ * the duplicate check still reads their registry, so history made through them stays valid.
+ */
+export const PAYGUARD_ROUTER_LEGACY = [
+  {
+    address: getAddress("0x4523152E1033F3a095A89E7AB6f85150a154B958"),
+    deployTx: "0x2a22d783b8a9249a9840ec2217b351cc4614bd4c661e8df47006896479f31b07" as `0x${string}`,
+    deployBlock: 16372387,
+    retiredAt: "2026-11-13",
+  },
+] as const;
+
+/** Every router address PayGuard recognises, current first. */
+export const ALL_ROUTER_ADDRESSES: readonly Address[] = [
+  PAYGUARD_ROUTER.address,
+  ...PAYGUARD_ROUTER_LEGACY.map((r) => r.address),
+];
+
+export function isPayGuardRouter(address: string | null | undefined): boolean {
+  if (!address) return false;
+  const a = address.toLowerCase();
+  return ALL_ROUTER_ADDRESSES.some((r) => r.toLowerCase() === a);
+}
 
 /**
  * Addresses that must never receive a payment: tokens sent here are unrecoverable
@@ -80,7 +107,8 @@ export const KNOWN_SYSTEM_CONTRACTS: Record<string, string> = {
   "0x4e4cba3779d56386ed43631b4dcd6d8eacecbcf6": "MUSD HintHelpers",
   "0x722e4d24fd6ff8b0ac679450f3d91294607268fa": "MUSD SortedTroves",
   "0xd4d6c36a592a2c5e86035a6bca1d57747a567f37": "MUSD InterestRateManager",
-  "0x4523152e1033f3a095a89e7ab6f85150a154b958": "the PayGuardRouter contract (it never holds funds)",
+  "0x6ecc1672d71b5ecf58436d0f3a34a48f695df84e": "the PayGuardRouter contract (it never holds funds)",
+  "0x4523152e1033f3a095a89e7ab6f85150a154b958": "a retired PayGuardRouter contract (it never holds funds)",
 };
 
 /* ------------------------------------------------------------------ ABIs */
