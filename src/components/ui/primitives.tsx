@@ -13,12 +13,16 @@ type Size = "sm" | "md" | "lg";
 
 const VARIANT: Record<Variant, string> = {
   primary:
-    "bg-cyan text-cyan-ink font-semibold hover:bg-cyan-strong shadow-[0_0_0_1px_rgb(127_232_245/0.4),0_8px_24px_-10px_rgb(69_217_236/0.6)] disabled:shadow-none",
-  secondary: "bg-surface-2 text-text border border-line-strong hover:border-cyan/60 hover:bg-surface-3",
+    "bg-cyan text-cyan-ink font-semibold hover:bg-cyan-strong shadow-[inset_0_1px_0_rgb(255_255_255/0.35),0_0_0_1px_rgb(127_232_245/0.4),0_8px_24px_-10px_rgb(69_217_236/0.6)] disabled:shadow-none",
+  secondary: "bg-surface-2 text-text font-medium border border-line-strong hover:border-cyan/60 hover:bg-surface-3",
   ghost: "text-muted hover:text-text hover:bg-surface-2",
-  danger: "bg-fail/10 text-fail border border-fail/40 hover:bg-fail/20",
+  danger: "bg-fail/10 text-fail font-medium border border-fail/40 hover:bg-fail/20",
   quiet: "text-cyan hover:text-cyan-strong underline-offset-4 hover:underline",
 };
+
+/** Shared by Button and ButtonLink: colour transitions plus a 1px press so a click is felt. */
+const BASE =
+  "inline-flex items-center justify-center whitespace-nowrap select-none transition-[background-color,border-color,color,box-shadow,transform] duration-150 active:translate-y-px disabled:active:translate-y-0";
 const SIZE: Record<Size, string> = {
   sm: "h-8 px-3 text-[13px] gap-1.5 rounded-[8px]",
   md: "h-10 px-4 text-sm gap-2 rounded-[10px]",
@@ -42,7 +46,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       className={cn(
-        "inline-flex items-center justify-center whitespace-nowrap transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50",
+        BASE,
+        "disabled:cursor-not-allowed disabled:opacity-50",
         VARIANT[variant],
         variant !== "quiet" && SIZE[size],
         className,
@@ -72,7 +77,7 @@ export function ButtonLink({
   icon?: ReactNode;
   external?: boolean;
 }) {
-  const cls = cn("inline-flex items-center justify-center whitespace-nowrap transition-colors duration-150", VARIANT[variant], variant !== "quiet" && SIZE[size], className);
+  const cls = cn(BASE, VARIANT[variant], variant !== "quiet" && SIZE[size], className);
   if (external) {
     return (
       <a href={href} target="_blank" rel="noopener noreferrer" className={cls}>
@@ -127,7 +132,7 @@ export function Field({
 }
 
 const inputBase =
-  "w-full bg-bg-deep border border-line rounded-[10px] px-3.5 text-[15px] text-text placeholder:text-faint transition-colors focus:border-cyan/70 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-0 aria-[invalid=true]:border-fail/70";
+  "w-full bg-bg-deep border border-line rounded-[10px] px-3.5 text-[15px] text-text placeholder:text-faint transition-[border-color,box-shadow] duration-150 hover:border-line-strong focus:border-cyan/70 focus:shadow-[0_0_0_4px_rgb(69_217_236/0.12)] focus:outline-none focus-visible:outline-none aria-[invalid=true]:border-fail/70 aria-[invalid=true]:focus:shadow-[0_0_0_4px_rgb(255_114_114/0.12)] disabled:cursor-not-allowed disabled:opacity-60";
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input({ className, ...rest }, ref) {
   return <input ref={ref} className={cn(inputBase, "h-11", className)} {...rest} />;
@@ -191,10 +196,10 @@ export function SectionTitle({ children, aside, id }: { children: ReactNode; asi
 
 export function PageHeader({ title, lede, actions }: { title: string; lede?: ReactNode; actions?: ReactNode }) {
   return (
-    <header className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+    <header className="mb-7 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
       <div className="max-w-2xl">
-        <h1 className="display text-[30px] md:text-[36px]">{title}</h1>
-        {lede ? <p className="mt-2 text-[15px] text-muted">{lede}</p> : null}
+        <h1 className="display text-[30px] md:text-[38px]">{title}</h1>
+        {lede ? <p className="mt-2.5 text-[15px] leading-relaxed text-muted">{lede}</p> : null}
       </div>
       {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
     </header>
