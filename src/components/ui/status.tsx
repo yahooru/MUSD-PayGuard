@@ -2,7 +2,7 @@ import { BadgeCheck, CircleAlert, CircleCheck, CircleDashed, CircleQuestionMark,
 import type { CheckStatus, RiskCategory, Severity } from "@/lib/engine/types";
 import type { TxStatus } from "@/lib/engine/status";
 import { STATUS_LABEL } from "@/lib/engine/status";
-import { cn } from "./primitives";
+import { cn } from "@/lib/cn";
 
 /*
   Status is never communicated by colour alone: every state has its own icon SHAPE

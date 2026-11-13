@@ -1,5 +1,13 @@
 import { BadgeCheck, CodeXml, LayoutDashboard, LifeBuoy, ReceiptText, ScrollText, Send, Settings, ShieldCheck, Users } from "lucide-react";
 
+/** The four destinations used most on a phone; everything else lives behind "More". */
+export const MOBILE_TABS = [
+  { href: "/dashboard", label: "Home", icon: LayoutDashboard },
+  { href: "/send", label: "Send", icon: Send },
+  { href: "/requests", label: "Requests", icon: ReceiptText },
+  { href: "/history", label: "History", icon: ScrollText },
+] as const;
+
 export const APP_NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, key: "g d" },
   { href: "/send", label: "Send MUSD", icon: Send, key: "g s" },

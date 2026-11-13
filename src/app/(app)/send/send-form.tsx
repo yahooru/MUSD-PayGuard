@@ -15,6 +15,7 @@ import { analyzeAddress, lookalikeStrength, sameAddress, sharedEnds } from "@/li
 import { validateInvoiceRef } from "@/lib/invoice";
 import { useSession } from "@/components/session";
 import { FullAddress } from "@/components/ui/data";
+import { FlowSteps } from "@/components/ui/flow-steps";
 import { Button, Field, Input, PageHeader, Textarea, cn } from "@/components/ui/primitives";
 import { useMusdBalance } from "@/components/wallet/wallet";
 
@@ -139,6 +140,7 @@ export function SendForm() {
 
   return (
     <div>
+      <FlowSteps current="details" />
       <PageHeader
         title={editId ? "Edit payment" : "Send MUSD"}
         lede="Enter the payment, then PayGuard runs every check before your wallet is asked to sign anything."

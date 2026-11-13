@@ -27,6 +27,8 @@ export function Providers({ children }: { children: ReactNode }) {
               theme="dark"
               position="bottom-right"
               closeButton
+              offset={{ bottom: "var(--toast-offset-bottom)", right: "24px" }}
+              mobileOffset={{ bottom: "var(--toast-offset-bottom)" }}
               toastOptions={{
                 style: {
                   background: "var(--surface-2)",

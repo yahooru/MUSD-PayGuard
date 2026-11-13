@@ -1,6 +1,16 @@
 import { encodeFunctionData, getAddress, type Address, type Hex } from "viem";
 import { MEZO_TESTNET, explorer } from "../../config/chains";
-import { BURN_ADDRESSES, GAS_POLICY, KNOWN_SYSTEM_CONTRACTS, MUSD, PAYGUARD_ROUTER, gasLimitFor, musdAbi, routerAbi } from "../../config/contracts";
+import {
+  BURN_ADDRESSES,
+  GAS_POLICY,
+  KNOWN_SYSTEM_CONTRACTS,
+  MUSD,
+  PAYGUARD_ROUTER,
+  PAYGUARD_ROUTER_LEGACY,
+  gasLimitFor,
+  musdAbi,
+  routerAbi,
+} from "../../config/contracts";
 import { analyzeAddress } from "../engine/address";
 import type {
   EngineConfig,
@@ -142,12 +152,15 @@ export async function gatherContext(input: GatherInput): Promise<{ ctx: Prefligh
   const onchainP: Promise<Observation<OnchainInvoiceObservation> | null> =
     to && refHash
       ? observe("router registry", async () => {
-          const [paid, amt, , blockNumber] = await c.readContract({
-            address: PAYGUARD_ROUTER.address,
-            abi: routerAbi,
-            functionName: "getPayment",
-            args: [from, to, refHash],
-          });
+          const read = (address: `0x${string}`) =>
+            c.readContract({ address, abi: routerAbi, functionName: "getPayment", args: [from, to, refHash] });
+          // The current router must answer; retired routers are best-effort so an old
+          // deployment can never make the check unavailable.
+          const [current, ...legacy] = await Promise.all([
+            read(PAYGUARD_ROUTER.address),
+            ...PAYGUARD_ROUTER_LEGACY.map((r) => read(r.address).catch(() => null)),
+          ]);
+          const [paid, amt, , blockNumber] = [current, ...legacy].find((p) => p?.[0]) ?? current;
           return { paid, amount: amt.toString(), blockNumber: blockNumber.toString() };
         }, "PayGuardRouter.getPayment")
       : Promise.resolve(null);

@@ -1,9 +1,12 @@
-import { ArrowRight, BadgeCheck, CodeXml, ShieldCheck } from "lucide-react";
+import { BadgeCheck, CodeXml, ExternalLink, ShieldCheck } from "lucide-react";
 import Link from "next/link";
-import { Hero3D } from "@/components/hero/hero";
 import { LiveStats } from "@/components/landing/live-stats";
+import { PreflightManifest } from "@/components/landing/preflight-manifest";
+import { FLOW_STEPS } from "@/components/ui/flow-steps";
 import { ButtonLink } from "@/components/ui/primitives";
-import { SUPPORTED_NETWORK } from "@/config/chains";
+import { SITE } from "@/config/site";
+import { SUPPORTED_NETWORK, explorer } from "@/config/chains";
+import { PAYGUARD_ROUTER } from "@/config/contracts";
 import { CATALOGUE, CHECK_GROUP_LABELS } from "@/lib/engine/catalogue";
 import type { CheckGroup } from "@/lib/engine/types";
 import { LIMITATIONS } from "@/lib/limitations";
@@ -19,13 +22,13 @@ const MISTAKES = [
   ["A fake payment screenshot", "Anyone can verify a transaction hash against the chain, without signing in."],
 ];
 
-const STEPS = [
-  ["Draft", "Enter recipient, amount and invoice reference. Nothing is signed."],
-  ["Preflight", "Every check runs against the live network and your history, with evidence for each result."],
-  ["Review", "Failures block sending. Serious warnings need your explicit acknowledgement."],
-  ["Sign", "PayGuard re-checks the exact reviewed payload, then your wallet asks you to approve."],
-  ["Verify", "The receipt, sender, recipient, token and amount are verified on-chain before it says confirmed."],
-];
+/** Same four steps, same names, as the progress bar inside the app. */
+const STEP_DETAIL: Record<(typeof FLOW_STEPS)[number]["id"], string> = {
+  details: "Pick a saved recipient or paste an address, then the amount and invoice reference. Nothing is signed.",
+  review: "Every check runs against the live network and your history. Failures block sending; serious warnings need your acknowledgement.",
+  sign: "PayGuard re-checks the exact payload you reviewed, then your wallet opens. Change anything and the review starts over.",
+  verify: "PayGuard reads the receipt itself and says confirmed only when the sender, recipient, token and amount all match.",
+};
 
 export default function Landing() {
   const groups = [...new Set(CATALOGUE.map((c) => c.group))] as CheckGroup[];
@@ -33,15 +36,15 @@ export default function Landing() {
     <>
       <section className="relative overflow-hidden border-b border-line">
         <div className="grid-bg pointer-events-none absolute inset-0" aria-hidden />
-        <div className="relative mx-auto grid max-w-[1240px] items-center gap-6 px-4 pb-10 pt-12 md:px-6 lg:grid-cols-[1fr_1.15fr] lg:pb-16 lg:pt-16">
+        <div className="relative mx-auto grid max-w-[1240px] items-center gap-12 px-4 pb-16 pt-12 md:px-6 lg:grid-cols-[1.05fr_1fr] lg:gap-16 lg:pb-24 lg:pt-20">
           <div>
             <p className="inline-flex items-center gap-2 rounded-full border border-warn/40 bg-warn/10 px-3 py-1 text-[12px] font-medium text-warn">
               Testnet: runs on {SUPPORTED_NETWORK.name} with test MUSD that has no value
             </p>
-            <h1 className="display mt-5 text-[46px] sm:text-[60px] lg:text-[72px]">Check before you send.</h1>
-            <p className="mt-5 max-w-xl text-[17px] leading-relaxed text-muted">
-              PayGuard sits between you and your wallet. It checks the recipient, network, token, balance and earlier payments before you sign a MUSD
-              transfer, then confirms the payment only after reading the receipt from the chain itself.
+            <h1 className="display mt-6 text-[48px] sm:text-[64px] lg:text-[80px]">Check before you send.</h1>
+            <p className="mt-6 max-w-[34rem] text-[17px] leading-relaxed text-muted">
+              Stablecoin payments can&apos;t be undone. PayGuard checks the recipient, network, token, balance and your earlier payments before your
+              wallet signs a MUSD transfer, then reads the receipt from the chain, so paid means paid.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <ButtonLink href="/send" variant="primary" size="lg" icon={<ShieldCheck className="size-4" aria-hidden />}>
@@ -56,7 +59,7 @@ export default function Landing() {
               address.
             </p>
           </div>
-          <Hero3D className="h-[300px] sm:h-[380px] lg:h-[520px]" />
+          <PreflightManifest className="mx-auto w-full max-w-[520px] lg:mr-0" />
         </div>
       </section>
 
@@ -90,15 +93,23 @@ export default function Landing() {
 
         <section className="mt-24" aria-labelledby="how-h">
           <h2 id="how-h" className="display text-[34px] md:text-[42px]">
-            From draft to verified receipt
+            From details to verified receipt
           </h2>
-          <ol className="mt-8 grid gap-4 md:grid-cols-5">
-            {STEPS.map(([t, d], i) => (
-              <li key={t} className="hull relative p-5">
-                <span className="mono text-[12px] text-cyan">{String(i + 1).padStart(2, "0")}</span>
-                <p className="heading mt-2 text-[18px]">{t}</p>
-                <p className="mt-2 text-[14px] text-muted">{d}</p>
-                {i < STEPS.length - 1 ? <ArrowRight className="absolute -right-3 top-1/2 hidden size-5 -translate-y-1/2 text-line-strong md:block" aria-hidden /> : null}
+          <p className="mt-3 max-w-2xl text-muted">Four steps, and the app shows you which one you are on.</p>
+          <ol className="relative mt-10 grid gap-8 md:grid-cols-4 md:gap-6">
+            <span className="absolute left-[13px] top-3 bottom-3 w-px bg-line-strong md:left-3 md:right-3 md:top-[13px] md:bottom-auto md:h-px md:w-auto" aria-hidden />
+            {FLOW_STEPS.map((s, i) => (
+              <li key={s.id} className="relative pl-11 md:pl-0">
+                <span
+                  className={
+                    "absolute left-0 top-0 grid size-[27px] place-items-center rounded-full border bg-bg text-[12px] font-semibold md:static " +
+                    (s.id === "sign" ? "border-violet/70 text-violet" : "border-cyan/70 text-cyan")
+                  }
+                >
+                  {i + 1}
+                </span>
+                <p className="heading text-[19px] md:mt-5">{s.label}</p>
+                <p className="mt-2 max-w-[30ch] text-[14px] leading-relaxed text-muted">{STEP_DETAIL[s.id]}</p>
               </li>
             ))}
           </ol>
@@ -160,9 +171,28 @@ export default function Landing() {
             <ButtonLink href="/developers" className="mt-6" icon={<CodeXml className="size-4" aria-hidden />}>
               Read the API docs
             </ButtonLink>
+            <div className="mt-8 border-t border-line pt-5 text-[13px]">
+              <p className="flex items-center gap-2 font-medium">
+                <BadgeCheck className="size-4 text-violet" aria-hidden />
+                PayGuardRouter source is verified on the Mezo explorer
+              </p>
+              <p className="mt-1.5 text-muted">
+                No owner, no fees, never holds funds. Payments through it record the invoice reference on-chain, so paying the same invoice twice
+                reverts.
+              </p>
+              <a
+                className="link mono mt-2 inline-flex items-center gap-1.5 break-all text-[12px]"
+                href={explorer.address(PAYGUARD_ROUTER.address)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {PAYGUARD_ROUTER.address}
+                <ExternalLink className="size-3 shrink-0" aria-hidden />
+              </a>
+            </div>
           </div>
           <pre className="inset mono overflow-x-auto p-5 text-[12.5px] leading-relaxed text-muted">
-            <code>{`curl -s https://musd-payguard.vercel.app/api/v1/verify \\
+            <code>{`curl -s ${SITE.url}/api/v1/verify \\
   -H 'content-type: application/json' \\
   -d '{
     "txHash": "0x…",
@@ -176,6 +206,26 @@ export default function Landing() {
 { "verdict": "verified", "verified": true,
   "steps": [ … receipt, sender, Transfer log … ] }`}</code>
           </pre>
+        </section>
+
+        <section className="mt-24 flex flex-col items-start justify-between gap-6 border-t border-line pt-12 md:flex-row md:items-end" aria-labelledby="cta-h">
+          <div>
+            <h2 id="cta-h" className="display text-[34px] md:text-[42px]">
+              Run your next payment through it.
+            </h2>
+            <p className="mt-3 max-w-xl text-muted">
+              Connect a wallet on {SUPPORTED_NETWORK.name}, sign in with a free signature, and send a small test payment. Every check is shown as it
+              runs.
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-3">
+            <ButtonLink href="/send" variant="primary" size="lg" icon={<ShieldCheck className="size-4" aria-hidden />}>
+              Start a checked payment
+            </ButtonLink>
+            <ButtonLink href="/verify" size="lg" icon={<BadgeCheck className="size-4" aria-hidden />}>
+              Verify a payment
+            </ButtonLink>
+          </div>
         </section>
       </div>
     </>

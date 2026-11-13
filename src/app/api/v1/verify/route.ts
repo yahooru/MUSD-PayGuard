@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { getAddress, type Hash } from "viem";
 import { z } from "zod";
 import { SUPPORTED_NETWORK, explorer } from "@/config/chains";
-import { MUSD, PAYGUARD_ROUTER } from "@/config/contracts";
+import { ALL_ROUTER_ADDRESSES, MUSD, isPayGuardRouter } from "@/config/contracts";
 import { formatAmount, parseAmountInput } from "@/lib/amount";
 import { analyzeAddress, sameAddress } from "@/lib/engine/address";
 import { invoiceRefHash, normalizeInvoiceRef, validateInvoiceRef } from "@/lib/invoice";
@@ -98,7 +98,7 @@ async function verify(req: NextRequest, input: Input) {
   const hash = input.txHash.toLowerCase() as Hash;
   const state = await fetchChainState(hash);
   const target = state.tx?.to ?? state.receipt?.to ?? null;
-  const viaRouter = sameAddress(target, PAYGUARD_ROUTER.address);
+  const viaRouter = isPayGuardRouter(target);
   const result = state.rpcError
     ? null
     : verifyPayment({
@@ -109,7 +109,7 @@ async function verify(req: NextRequest, input: Input) {
           amount,
           from,
           method: "any",
-          routerAddress: PAYGUARD_ROUTER.address,
+          routerAddress: ALL_ROUTER_ADDRESSES,
           invoiceRefHash: viaRouter ? refHash : null,
           requiredConfirmations: SUPPORTED_NETWORK.requiredConfirmations,
         },

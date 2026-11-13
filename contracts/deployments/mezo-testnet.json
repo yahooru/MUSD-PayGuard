@@ -2,33 +2,43 @@
   "contract": "PayGuardRouter",
   "network": "mezo-testnet",
   "chainId": 31611,
-  "address": "0x4523152E1033F3a095A89E7AB6f85150a154B958",
-  "txHash": "0x2a22d783b8a9249a9840ec2217b351cc4614bd4c661e8df47006896479f31b07",
-  "blockNumber": 16372387,
+  "address": "0x6EcC1672D71B5ECF58436D0f3a34A48F695dF84e",
+  "txHash": "0xf94b134c8a81a2a1dfaacbee0587ccdc9f8147b624072e2ed0b8b40c56b93b0b",
+  "blockNumber": 16749291,
   "gasUsed": "750000",
-  "deployer": "0x10ac9924a78051BdD770978740C5084205cdB628",
+  "deployer": "0xd424C789db43d07a277C83E21Fa99575De826172",
   "token": "0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503",
   "constructorArgs": [
     "0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503"
   ],
-  "deployedAt": "2026-10-26T02:34:17.325Z",
+  "deployedAt": "2026-11-13T06:18:37.918Z",
   "explorer": {
-    "address": "https://explorer.test.mezo.org/address/0x4523152E1033F3a095A89E7AB6f85150a154B958",
-    "tx": "https://explorer.test.mezo.org/tx/0x2a22d783b8a9249a9840ec2217b351cc4614bd4c661e8df47006896479f31b07"
+    "address": "https://explorer.test.mezo.org/address/0x6EcC1672D71B5ECF58436D0f3a34A48F695dF84e",
+    "tx": "https://explorer.test.mezo.org/tx/0xf94b134c8a81a2a1dfaacbee0587ccdc9f8147b624072e2ed0b8b40c56b93b0b"
   },
   "compiler": {
     "version": "0.8.28",
     "evmVersion": "london",
     "optimizerRuns": 200
   },
-  "verified": false,
+  "verified": true,
   "verification": {
-    "attemptedAt": "2026-10-26T02:41:07.641Z",
+    "verifiedAt": "2026-11-13T06:23:00.659Z",
     "explorer": "Blockscout (explorer.test.mezo.org)",
-    "result": "Fail - Unable to verify (hardhat-verify, Etherscan-compatible standard-json, and v2 flattened-code all rejected by the explorer verifier)",
-    "bytecodeMatch": "On-chain creation bytecode == local artifact bytecode + ABI-encoded constructor arg (checked byte-for-byte)",
-    "standardInput": "verification/PayGuardRouter.standard-input.json",
+    "method": "hardhat-verify (Etherscan-compatible API)",
+    "result": "Pass - fully verified (is_fully_verified: true)",
     "compilerVersion": "v0.8.28+commit.7893614a",
-    "constructorArgsAbiEncoded": "000000000000000000000000118917a40faf1cd7a13db0ef56c86de7973ac503"
-  }
+    "sourceUrl": "https://explorer.test.mezo.org/address/0x6EcC1672D71B5ECF58436D0f3a34A48F695dF84e?tab=contract"
+  },
+  "previousDeployments": [
+    {
+      "address": "0x4523152E1033F3a095A89E7AB6f85150a154B958",
+      "txHash": "0x2a22d783b8a9249a9840ec2217b351cc4614bd4c661e8df47006896479f31b07",
+      "blockNumber": 16372387,
+      "deployer": "0x10ac9924a78051BdD770978740C5084205cdB628",
+      "deployedAt": "2026-10-26T02:34:17.325Z",
+      "verified": false,
+      "note": "Retired 2026-11-13. Same source; still recognised by the receipt verifier."
+    }
+  ]
 }

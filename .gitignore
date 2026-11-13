@@ -31,3 +31,6 @@ npm-debug.log*
 coverage/
 test-results/
 e2e-results*.json
+
+# local browser automation output
+.playwright-mcp/

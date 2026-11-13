@@ -4,8 +4,11 @@
  *   npx hardhat run scripts/deploy.ts --network mezotestnet
  *
  * Security:
- *  - The deployer key is read AT RUNTIME from DEPLOYER_ENV_FILE (default C:\Users\nikku\Desktop\.env.txt,
- *    line `PRIVATE_KEY=<hex>`). It is never logged, written to disk, or placed in Hardhat config.
+ *  - The deployer key is read AT RUNTIME from DEPLOYER_ENV_FILE (default: contracts/.env.deployer,
+ *    which is git-ignored; line `PRIVATE_KEY=<hex>`). It is never logged, written to disk, or placed
+ *    in Hardhat config.
+ *  - The previous deployment record is kept under `previousDeployments`, so receipts for payments
+ *    made through an earlier router can still be verified.
  *  - Explicit gas limit on every write (Mezo enforces the EIP-7623 calldata floor and the public RPC
  *    has returned bogus low estimates): gas = max(estimate * 1.3, 1_500_000); estimates < 30k are ignored.
  *  - Nonce-safe retries: the same deployer is used concurrently by other tools, so on
@@ -13,14 +16,14 @@
  */
 import hre from "hardhat";
 import { ethers } from "ethers";
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 
 const CHAIN_ID = 31611n;
 const RPC_URL = process.env.MEZO_TESTNET_RPC ?? "https://rpc.test.mezo.org";
 const MUSD = "0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503";
 const GAS_FLOOR = 1_500_000n;
-const DEFAULT_ENV_FILE = "C:\\Users\\nikku\\Desktop\\.env.txt";
+const DEFAULT_ENV_FILE = path.resolve(__dirname, "..", ".env.deployer");
 
 function loadDeployerKey(): string {
   const file = process.env.DEPLOYER_ENV_FILE ?? DEFAULT_ENV_FILE;
@@ -129,6 +132,20 @@ async function main() {
   mkdirSync(path.join(root, "deployments"), { recursive: true });
   mkdirSync(path.join(root, "abi"), { recursive: true });
   const solc = hre.config.solidity.compilers[0];
+  const deploymentFile = path.join(root, "deployments", "mezo-testnet.json");
+  const previous = existsSync(deploymentFile) ? JSON.parse(readFileSync(deploymentFile, "utf8")) : null;
+  const previousDeployments: Array<Record<string, unknown>> = previous
+    ? [
+        ...(previous.previousDeployments ?? []),
+        {
+          address: previous.address,
+          txHash: previous.txHash,
+          blockNumber: previous.blockNumber,
+          deployer: previous.deployer,
+          deployedAt: previous.deployedAt,
+        },
+      ].filter((d) => String(d.address).toLowerCase() !== address.toLowerCase())
+    : [];
   const deployment = {
     contract: "PayGuardRouter",
     network: "mezo-testnet",
@@ -151,8 +168,9 @@ async function main() {
       optimizerRuns: solc.settings?.optimizer?.runs,
     },
     verified: false,
+    previousDeployments,
   };
-  writeFileSync(path.join(root, "deployments", "mezo-testnet.json"), JSON.stringify(deployment, null, 2) + "\n");
+  writeFileSync(deploymentFile, JSON.stringify(deployment, null, 2) + "\n");
   writeFileSync(path.join(root, "abi", "PayGuardRouter.json"), JSON.stringify(artifact.abi, null, 2) + "\n");
   console.log("Wrote deployments/mezo-testnet.json and abi/PayGuardRouter.json");
 }
