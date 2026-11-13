@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { encodeAbiParameters, encodeEventTopics, type Hex } from "viem";
-import { MUSD, PAYGUARD_ROUTER, musdAbi, routerAbi } from "@/config/contracts";
+import {
+  ALL_ROUTER_ADDRESSES,
+  KNOWN_SYSTEM_CONTRACTS,
+  MUSD,
+  PAYGUARD_ROUTER,
+  PAYGUARD_ROUTER_LEGACY,
+  isPayGuardRouter,
+  musdAbi,
+  routerAbi,
+} from "@/config/contracts";
 import { verifyPayment, type ChainLog, type ExpectedPayment } from "@/lib/verify/receipt";
 import { invoiceRefHash } from "@/lib/invoice";
 import { ALICE, BOB, CAROL, ONE } from "./fixtures";
@@ -14,9 +23,9 @@ function transferLog(from: string, to: string, value: bigint, token: string = MU
   };
 }
 
-function invoiceLog(payer: string, recipient: string, ref: Hex, amount: bigint): ChainLog {
+function invoiceLog(payer: string, recipient: string, ref: Hex, amount: bigint, router: string = PAYGUARD_ROUTER.address): ChainLog {
   return {
-    address: PAYGUARD_ROUTER.address,
+    address: router,
     topics: encodeEventTopics({ abi: routerAbi, eventName: "InvoicePaid", args: { payer: payer as Hex, recipient: recipient as Hex, invoiceRef: ref } }) as Hex[],
     data: encodeAbiParameters([{ type: "uint256" }, { type: "uint256" }], [amount, amount]),
     logIndex: 1,
@@ -124,6 +133,48 @@ describe("receipt verification", () => {
       latestBlock: 100n,
     });
     expect(wrongRef.outcome).toBe("mismatch");
+  });
+
+  it("still verifies receipts from a retired router deployment when all routers are recognised", () => {
+    const legacy = PAYGUARD_ROUTER_LEGACY[0].address;
+    const ref = invoiceRefHash("inv-legacy");
+    const logs = [transferLog(ALICE, BOB, 2n * ONE), invoiceLog(ALICE, BOB, ref, 2n * ONE, legacy)];
+    const legacyTx = { ...tx, to: legacy };
+    const all: ExpectedPayment = { ...expected, method: "router", invoiceRefHash: ref, routerAddress: ALL_ROUTER_ADDRESSES };
+    const ok = verifyPayment({ expected: all, tx: legacyTx, receipt: { ...okReceipt(logs), to: legacy }, latestBlock: 100n });
+    expect(ok.outcome).toBe("confirmed");
+    expect(ok.invoiceRefOnchain).toBe(ref);
+    // Restricted to the current router only, the same receipt is not accepted.
+    const onlyCurrent = verifyPayment({
+      expected: { ...all, routerAddress: PAYGUARD_ROUTER.address },
+      tx: legacyTx,
+      receipt: { ...okReceipt(logs), to: legacy },
+      latestBlock: 100n,
+    });
+    expect(onlyCurrent.outcome).toBe("mismatch");
+  });
+
+  it("ignores InvoicePaid events emitted by contracts that are not PayGuard routers", () => {
+    const ref = invoiceRefHash("inv-spoof");
+    const spoof = "0x00000000000000000000000000000000000000AA";
+    const r = verifyPayment({
+      expected: { ...expected, method: "any", invoiceRefHash: ref, routerAddress: ALL_ROUTER_ADDRESSES },
+      tx,
+      receipt: okReceipt([transferLog(ALICE, BOB, 2n * ONE), invoiceLog(ALICE, BOB, ref, 2n * ONE, spoof)]),
+      latestBlock: 100n,
+    });
+    expect(r.outcome).toBe("mismatch");
+    expect(r.invoiceRefOnchain ?? null).toBeNull();
+  });
+
+  it("knows the current and retired routers and never treats them as payees", () => {
+    expect(ALL_ROUTER_ADDRESSES[0]).toBe(PAYGUARD_ROUTER.address);
+    for (const a of ALL_ROUTER_ADDRESSES) {
+      expect(isPayGuardRouter(a.toLowerCase())).toBe(true);
+      expect(KNOWN_SYSTEM_CONTRACTS[a.toLowerCase()]).toBeTruthy();
+    }
+    expect(isPayGuardRouter(MUSD.address)).toBe(false);
+    expect(isPayGuardRouter(null)).toBe(false);
   });
 
   it("rejects a direct transfer when the router was expected", () => {
