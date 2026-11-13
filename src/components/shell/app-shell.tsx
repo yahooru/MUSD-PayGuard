@@ -1,26 +1,31 @@
 "use client";
 
 import { Dialog } from "radix-ui";
-import { KeyRound, Menu, Network, TriangleAlert, Wallet, X } from "lucide-react";
+import { BadgeCheck, Ellipsis, ExternalLink, KeyRound, Menu, Network, Send, TriangleAlert, Wallet, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { useAccount } from "wagmi";
-import { SUPPORTED_NETWORK, chainName, isSupportedChain } from "@/config/chains";
+import { SUPPORTED_NETWORK, chainName, explorer, isSupportedChain } from "@/config/chains";
+import { PAYGUARD_ROUTER } from "@/config/contracts";
 import { shortAddress } from "@/lib/format";
 import { useSession } from "../session";
-import { Button, Skeleton, cn } from "../ui/primitives";
+import { Button, ButtonLink, Skeleton, cn } from "../ui/primitives";
 import { useConnectDialog } from "../wallet/connect-dialog";
 import { useNetworkActions, WalletButton } from "../wallet/wallet";
 import { CommandPalette } from "./command-palette";
 import { Logo } from "./logo";
-import { APP_NAV, SECONDARY_NAV } from "./nav";
+import { APP_NAV, MOBILE_TABS, SECONDARY_NAV } from "./nav";
 import { NetworkStatus } from "./network-status";
 import { Notifications } from "./notifications";
 
-function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
+function useIsActive() {
   const path = usePathname();
-  const active = (href: string) => path === href || path.startsWith(`${href}/`) || (href === "/send" && path.startsWith("/review"));
+  return (href: string) => path === href || path.startsWith(`${href}/`) || (href === "/send" && path.startsWith("/review"));
+}
+
+function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
+  const active = useIsActive();
   return (
     <nav aria-label="Main" className="flex flex-col gap-0.5">
       {APP_NAV.map((n) => {
@@ -39,7 +44,10 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
           >
             {on ? <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-full bg-cyan" aria-hidden /> : null}
             <Icon className={cn("size-[18px]", on ? "text-cyan" : "text-faint group-hover:text-muted")} aria-hidden />
-            {n.label}
+            <span className="flex-1">{n.label}</span>
+            <span className="kbd hidden opacity-0 transition-opacity group-hover:opacity-100 lg:inline" aria-hidden>
+              {n.key}
+            </span>
           </Link>
         );
       })}
@@ -76,9 +84,22 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="mt-8 flex-1 overflow-y-auto">
           <NavLinks />
         </div>
-        <p className="mt-4 text-[11px] leading-relaxed text-faint">
-          {SUPPORTED_NETWORK.name}. Test tokens only. PayGuard reduces common mistakes; it cannot guarantee a recipient is trustworthy.
-        </p>
+        <div className="mt-4 rounded-[12px] border border-line bg-surface/60 p-3">
+          <a
+            href={explorer.address(PAYGUARD_ROUTER.address)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group flex items-center gap-2 text-[12px] font-medium text-text"
+          >
+            <BadgeCheck className="size-4 text-violet" aria-hidden />
+            Router source verified
+            <ExternalLink className="ml-auto size-3 text-faint group-hover:text-muted" aria-hidden />
+          </a>
+          <p className="mono mt-1 text-[11px] text-faint">{shortAddress(PAYGUARD_ROUTER.address)}</p>
+          <p className="mt-2 text-[11px] leading-relaxed text-faint">
+            {SUPPORTED_NETWORK.name} only. Test MUSD has no value. PayGuard reduces mistakes; it cannot vouch for a recipient.
+          </p>
+        </div>
       </aside>
 
       <div className="min-w-0">
@@ -86,30 +107,33 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="flex h-16 items-center gap-3 px-4 md:px-6">
             <button
               type="button"
-              className="grid size-10 place-items-center rounded-[10px] border border-line text-muted lg:hidden"
+              className="hidden size-10 place-items-center rounded-[10px] border border-line text-muted sm:grid lg:hidden"
               onClick={() => setMobileOpen(true)}
               aria-label="Open menu"
             >
               <Menu className="size-5" aria-hidden />
             </button>
             <div className="lg:hidden">
-              <Logo href="/dashboard" />
+              <Logo href="/dashboard" compact />
             </div>
             <div className="hidden flex-1 items-center gap-3 lg:flex">
               <CommandPalette />
             </div>
             <div className="ml-auto flex items-center gap-2">
               <NetworkStatus className="hidden md:inline-flex" />
+              <NewPaymentButton />
               <Notifications />
               <WalletButton />
             </div>
           </div>
         </header>
         <StatusBanners />
-        <main id="main" className="mx-auto w-full max-w-[1180px] px-4 py-6 md:px-6 md:py-8">
+        <main id="main" className="mx-auto w-full max-w-[1180px] px-4 pt-6 pb-28 md:px-6 md:pt-8 lg:pb-12">
           {children}
         </main>
       </div>
+
+      <MobileTabs onMore={() => setMobileOpen(true)} />
 
       <Dialog.Root open={mobileOpen} onOpenChange={setMobileOpen}>
         <Dialog.Portal>
@@ -125,12 +149,65 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <X className="size-5" />
               </Dialog.Close>
             </div>
-            <NetworkStatus className="mb-5" />
+            <NetworkStatus className="mb-5 inline-flex" />
             <NavLinks onNavigate={() => setMobileOpen(false)} />
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
     </div>
+  );
+}
+
+/** Header shortcut to start a payment; hidden while already in the payment flow. */
+function NewPaymentButton() {
+  const path = usePathname();
+  // The dashboard and the payment flow already carry their own primary action.
+  if (path === "/dashboard" || path.startsWith("/send") || path.startsWith("/review")) return null;
+  return (
+    <ButtonLink href="/send" size="md" className="hidden xl:inline-flex" icon={<Send className="size-4" aria-hidden />}>
+      New payment
+    </ButtonLink>
+  );
+}
+
+/** Thumb-reach navigation for phones and small tablets. The drawer keeps everything else. */
+function MobileTabs({ onMore }: { onMore: () => void }) {
+  const active = useIsActive();
+  return (
+    <nav
+      aria-label="Quick navigation"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-bg/90 backdrop-blur-md lg:hidden"
+      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+    >
+      <ul className="mx-auto grid h-16 max-w-md grid-cols-5">
+        {MOBILE_TABS.map((t) => {
+          const Icon = t.icon;
+          const on = active(t.href);
+          return (
+            <li key={t.href}>
+              <Link
+                href={t.href}
+                aria-current={on ? "page" : undefined}
+                className={cn("flex h-full flex-col items-center justify-center gap-1 text-[11px] font-medium", on ? "text-cyan" : "text-muted")}
+              >
+                <span className={cn("grid h-7 w-12 place-items-center rounded-full transition-colors", on && "bg-cyan/12")}>
+                  <Icon className="size-[18px]" aria-hidden />
+                </span>
+                {t.label}
+              </Link>
+            </li>
+          );
+        })}
+        <li>
+          <button type="button" onClick={onMore} className="flex h-full w-full flex-col items-center justify-center gap-1 text-[11px] font-medium text-muted">
+            <span className="grid h-7 w-12 place-items-center rounded-full">
+              <Ellipsis className="size-[18px]" aria-hidden />
+            </span>
+            More
+          </button>
+        </li>
+      </ul>
+    </nav>
   );
 }
 

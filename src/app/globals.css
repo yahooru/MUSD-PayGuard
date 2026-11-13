@@ -162,6 +162,16 @@ body {
   background: var(--surface-2);
 }
 
+/* Toasts sit above the mobile tab bar (shown below the lg breakpoint). */
+:root {
+  --toast-offset-bottom: 24px;
+}
+@media (max-width: 1023px) {
+  :root {
+    --toast-offset-bottom: calc(80px + env(safe-area-inset-bottom));
+  }
+}
+
 /* Keyboard shortcut hint. */
 .kbd {
   font-family: var(--font-mono);
