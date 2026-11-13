@@ -175,7 +175,7 @@ async function main() {
 
   // 0. Health
   const health = await alice.req("GET", "/api/health");
-  expect(health.status === 200 && health.body.db === "ok" && health.body.rpc === "ok" && health.body.chainId === 31611, "health: db ok, rpc ok, chain 31611", `block ${health.body.blockNumber}`);
+  expect(health.status === 200 && health.body.db === "ok" && health.body.rpc === "ok" && health.body.chainId === 31611, "health: db ok, rpc ok, chain 31611", `HTTP ${health.status} db=${health.body.db} rpc=${health.body.rpc} block ${health.body.blockNumber}`);
 
   // 1. Auth
   const unauth = await alice.req("GET", "/api/recipients");
