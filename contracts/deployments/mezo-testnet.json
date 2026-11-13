@@ -1,0 +1,34 @@
+{
+  "contract": "PayGuardRouter",
+  "network": "mezo-testnet",
+  "chainId": 31611,
+  "address": "0x4523152E1033F3a095A89E7AB6f85150a154B958",
+  "txHash": "0x2a22d783b8a9249a9840ec2217b351cc4614bd4c661e8df47006896479f31b07",
+  "blockNumber": 16372387,
+  "gasUsed": "750000",
+  "deployer": "0x10ac9924a78051BdD770978740C5084205cdB628",
+  "token": "0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503",
+  "constructorArgs": [
+    "0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503"
+  ],
+  "deployedAt": "2026-10-26T02:34:17.325Z",
+  "explorer": {
+    "address": "https://explorer.test.mezo.org/address/0x4523152E1033F3a095A89E7AB6f85150a154B958",
+    "tx": "https://explorer.test.mezo.org/tx/0x2a22d783b8a9249a9840ec2217b351cc4614bd4c661e8df47006896479f31b07"
+  },
+  "compiler": {
+    "version": "0.8.28",
+    "evmVersion": "london",
+    "optimizerRuns": 200
+  },
+  "verified": false,
+  "verification": {
+    "attemptedAt": "2026-10-26T02:41:07.641Z",
+    "explorer": "Blockscout (explorer.test.mezo.org)",
+    "result": "Fail - Unable to verify (hardhat-verify, Etherscan-compatible standard-json, and v2 flattened-code all rejected by the explorer verifier)",
+    "bytecodeMatch": "On-chain creation bytecode == local artifact bytecode + ABI-encoded constructor arg (checked byte-for-byte)",
+    "standardInput": "verification/PayGuardRouter.standard-input.json",
+    "compilerVersion": "v0.8.28+commit.7893614a",
+    "constructorArgsAbiEncoded": "000000000000000000000000118917a40faf1cd7a13db0ef56c86de7973ac503"
+  }
+}

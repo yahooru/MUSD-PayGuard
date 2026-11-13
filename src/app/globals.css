@@ -1,0 +1,238 @@
+@import "tailwindcss";
+
+/*
+  PayGuard design tokens.
+  Base: navy-black hull with layered surfaces. Signal cyan is the primary action/attention colour,
+  violet is reserved for on-chain/registry and secondary accents. Status colours are always paired
+  with a distinct icon shape and a text label — never colour alone.
+*/
+:root {
+  --bg: #060a13;
+  --bg-deep: #03060c;
+  --surface: #0a1120;
+  --surface-2: #0f192b;
+  --surface-3: #142238;
+  --line: #1b2a42;
+  --line-strong: #2a3d5c;
+  --text: #e8eef8;
+  --muted: #9aaac2;
+  --faint: #6a7c98;
+  --cyan: #45d9ec;
+  --cyan-strong: #7fe8f5;
+  --cyan-ink: #02131a;
+  --violet: #a294ff;
+  --pass: #52e0a1;
+  --warn: #f7bd52;
+  --fail: #ff7272;
+  --na: #94a3bb;
+  --focus: #7fe8f5;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-deep: var(--bg-deep);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-cyan: var(--cyan);
+  --color-cyan-strong: var(--cyan-strong);
+  --color-cyan-ink: var(--cyan-ink);
+  --color-violet: var(--violet);
+  --color-pass: var(--pass);
+  --color-warn: var(--warn);
+  --color-fail: var(--fail);
+  --color-na: var(--na);
+  --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --radius-hull: 20px;
+  --radius-card: 14px;
+  --radius-control: 10px;
+}
+
+html {
+  color-scheme: dark;
+  background: var(--bg);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.55;
+  font-feature-settings: "ss01", "cv11";
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100dvh;
+}
+
+/* Expanded-width display type: the instrument-placard voice of the product. */
+.display {
+  font-stretch: 116%;
+  font-weight: 640;
+  letter-spacing: -0.022em;
+  line-height: 1.02;
+}
+.heading {
+  font-stretch: 108%;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  line-height: 1.15;
+}
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+.mono {
+  font-family: var(--font-mono);
+  font-feature-settings: "zero" 1;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--cyan) 35%, transparent);
+  color: var(--text);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Hull: the main layered surface. Hairline top highlight + soft depth shadow. */
+.hull {
+  background: linear-gradient(180deg, color-mix(in oklab, var(--surface-2) 92%, white 2%), var(--surface));
+  border: 1px solid var(--line);
+  border-radius: var(--radius-hull);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.035),
+    0 1px 0 rgb(0 0 0 / 0.4),
+    0 24px 48px -28px rgb(0 0 0 / 0.7);
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+}
+.inset {
+  background: var(--bg-deep);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.glass {
+  background: color-mix(in oklab, var(--surface) 72%, transparent);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  border: 1px solid color-mix(in oklab, var(--line-strong) 70%, transparent);
+}
+
+/* Faint engineering grid used behind the hero and empty states. */
+.grid-bg {
+  background-image:
+    linear-gradient(to right, rgb(69 217 236 / 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(69 217 236 / 0.045) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse at 50% 30%, black 30%, transparent 75%);
+}
+
+.link {
+  color: var(--cyan);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklab, var(--cyan) 40%, transparent);
+  text-underline-offset: 3px;
+}
+.link:hover {
+  text-decoration-color: var(--cyan);
+}
+
+/* Skeleton shimmer (disabled for reduced motion). */
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-2) 0%, var(--surface-3) 50%, var(--surface-2) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: 8px;
+}
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* Pending pulse for status orbs: motion only signals "still working". */
+.pulse-ring {
+  animation: pulse-ring 1.8s ease-out infinite;
+}
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, currentColor 45%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 10px transparent;
+  }
+}
+
+/* Receipt flip micro-moment */
+.flip-in {
+  animation: flip-in 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  transform-origin: 50% 0%;
+}
+@keyframes flip-in {
+  from {
+    transform: perspective(1200px) rotateX(-14deg) translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: perspective(1200px) rotateX(0) translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Print: receipts print as clean black-on-white documents. */
+@media print {
+  :root {
+    --bg: #ffffff;
+    --bg-deep: #ffffff;
+    --surface: #ffffff;
+    --surface-2: #ffffff;
+    --surface-3: #f2f4f7;
+    --line: #d0d6df;
+    --line-strong: #9aa6b8;
+    --text: #0b1220;
+    --muted: #3d4a5e;
+    --faint: #5b6779;
+    --cyan: #006f80;
+    --pass: #0a7a47;
+    --warn: #8a5a00;
+    --fail: #b42318;
+  }
+  html,
+  body {
+    background: #fff !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .hull,
+  .card {
+    box-shadow: none !important;
+  }
+}

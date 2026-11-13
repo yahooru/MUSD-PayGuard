@@ -1,0 +1,33 @@
+# dependencies
+node_modules/
+contracts/node_modules/
+
+# builds
+.next/
+out/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# contracts build output
+contracts/cache/
+contracts/artifacts/
+contracts/typechain-types/
+contracts/coverage/
+
+# env & secrets (never commit key material)
+.env*
+!.env.example
+*.key
+*.pem
+secret.tmp
+
+# vercel
+.vercel
+
+# misc
+.DS_Store
+npm-debug.log*
+coverage/
+test-results/
+e2e-results*.json
