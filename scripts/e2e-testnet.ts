@@ -395,6 +395,18 @@ async function main() {
 }
 
 /* ------------------------------------------------------------ unfunded suite */
+/** The public Mezo RPC is load-balanced: a lagging node can briefly miss a mined receipt. */
+async function receiptOf(hash: Hex) {
+  for (let i = 0; ; i++) {
+    try {
+      return await pub.getTransactionReceipt({ hash });
+    } catch (e) {
+      if (i >= 5) throw e;
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+  }
+}
+
 async function permitArgs(owner: PrivateKeyAccount, to: Hex, amount: bigint, refHash: Hex) {
   const nonce = await pub.readContract({ address: MUSD.address, abi: musdAbi, functionName: "nonces", args: [owner.address] });
   const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
@@ -516,21 +528,21 @@ async function unfundedSuite({
   await alice.req("DELETE", `/api/drafts/${rp.draft.id}`);
 
   // G. Public verification API against real, earlier PayGuard payments.
-  const dRc = await pub.getTransactionReceipt({ hash: HISTORIC.direct });
+  const dRc = await receiptOf(HISTORIC.direct);
   const dTr = dRc.logs
     .filter((l) => l.address.toLowerCase() === MUSD.address.toLowerCase())
     .map((l) => decodeEventLog({ abi: musdAbi, data: l.data, topics: l.topics }))
     .find((e) => e.eventName === "Transfer")!.args as { from: Hex; to: Hex; value: bigint };
-  const vOk = await alice.req("POST", "/api/v1/verify", { txHash: HISTORIC.direct, expected: { recipient: dTr.to, amount: formatAmount(dTr.value), from: dTr.from } });
+  const vOk = await alice.req("POST", "/api/v1/verify", { txHash: HISTORIC.direct, expected: { recipient: dTr.to, amountBaseUnits: dTr.value.toString(), from: dTr.from } });
   expect(vOk.body.verdict === "verified" && vOk.body.transaction?.calledContract === "MUSD", "public API: earlier direct payment → verified", HISTORIC.direct);
-  const vAmt = await alice.req("POST", "/api/v1/verify", { txHash: HISTORIC.direct, expected: { recipient: dTr.to, amount: formatAmount(dTr.value + 1n) } });
-  expect(vAmt.body.verdict === "mismatch", "public API: wrong amount → mismatch", vAmt.body.reason);
-  const vTo = await alice.req("POST", "/api/v1/verify", { txHash: HISTORIC.direct, expected: { recipient: aliceAcc.address, amount: formatAmount(dTr.value) } });
+  const vAmt = await alice.req("POST", "/api/v1/verify", { txHash: HISTORIC.direct, expected: { recipient: dTr.to, amountBaseUnits: (dTr.value + 1n).toString() } });
+  expect(vAmt.body.verdict === "mismatch", "public API: amount off by 1 wei → mismatch", vAmt.body.reason);
+  const vTo = await alice.req("POST", "/api/v1/verify", { txHash: HISTORIC.direct, expected: { recipient: aliceAcc.address, amountBaseUnits: dTr.value.toString() } });
   expect(vTo.body.verdict === "mismatch", "public API: wrong recipient → mismatch");
   const vNf = await alice.req("GET", `/api/v1/verify?txHash=0x${"12".repeat(32)}&recipient=${bobAcc.address}&amount=2`);
   expect(vNf.body.verdict === "not_found", "public API: unknown hash → not_found");
 
-  const lRc = await pub.getTransactionReceipt({ hash: HISTORIC.legacyRouter.hash });
+  const lRc = await receiptOf(HISTORIC.legacyRouter.hash);
   const inv = lRc.logs
     .filter((l) => l.address.toLowerCase() === PAYGUARD_ROUTER_LEGACY[0].address.toLowerCase())
     .map((l) => decodeEventLog({ abi: routerAbi, data: l.data, topics: l.topics }))
@@ -538,7 +550,7 @@ async function unfundedSuite({
   expect(inv.invoiceRef === invoiceRefHash(HISTORIC.legacyRouter.invoiceRef), "retired-router payment carries the expected invoice reference hash on-chain");
   const vLegacy = await alice.req("POST", "/api/v1/verify", {
     txHash: HISTORIC.legacyRouter.hash,
-    expected: { recipient: inv.recipient, amount: formatAmount(inv.amount), invoiceRef: HISTORIC.legacyRouter.invoiceRef },
+    expected: { recipient: inv.recipient, amountBaseUnits: inv.amount.toString(), invoiceRef: HISTORIC.legacyRouter.invoiceRef },
   });
   expect(
     vLegacy.body.verdict === "verified" && vLegacy.body.transaction?.calledContract === "PayGuardRouter" && vLegacy.body.invoice?.recordedOnChain === true,
@@ -547,7 +559,7 @@ async function unfundedSuite({
   );
   const vLegacyBad = await alice.req("POST", "/api/v1/verify", {
     txHash: HISTORIC.legacyRouter.hash,
-    expected: { recipient: inv.recipient, amount: formatAmount(inv.amount), invoiceRef: `${HISTORIC.legacyRouter.invoiceRef}-X` },
+    expected: { recipient: inv.recipient, amountBaseUnits: inv.amount.toString(), invoiceRef: `${HISTORIC.legacyRouter.invoiceRef}-X` },
   });
   expect(vLegacyBad.body.verdict === "mismatch", "public API: wrong invoice reference on a router payment → mismatch");
   skipped.push("Funded steps (real direct + router payments, receipt verification of new payments, AlreadyPaid on re-pay): alice has no test MUSD. Fund alice with >= 4 MUSD to run them.");
