@@ -93,7 +93,11 @@ export function CommandPalette() {
                     className={item}
                     onSelect={() => {
                       setOpen(false);
-                      window.location.href = "/api/export";
+                      // A file download, not a page: use a download link rather than client navigation.
+                      const a = document.createElement("a");
+                      a.href = "/api/export";
+                      a.download = "";
+                      a.click();
                     }}
                   >
                     <Download className="size-4 text-cyan" aria-hidden /> Export history as CSV

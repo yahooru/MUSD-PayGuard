@@ -12,7 +12,6 @@ export function db(): NeonQueryFunction<false, false> {
   return client;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Row = Record<string, any>;
 
 export async function q<T extends Row = Row>(text: string, params: unknown[] = []): Promise<T[]> {
