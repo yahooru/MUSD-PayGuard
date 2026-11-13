@@ -11,3 +11,7 @@ contracts/coverage
 *.pem
 secret.tmp
 e2e-results*.json
+
+# local tooling output (never part of the deployment)
+.playwright-mcp
+*.tsbuildinfo
