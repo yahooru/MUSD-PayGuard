@@ -22,6 +22,7 @@ import type { Settings } from "@/lib/settings";
 import { AssistantPanel, CheckList, GateRail, Verdict } from "@/components/engine/checks";
 import { useSession } from "@/components/session";
 import { CopyButton, FullAddress, Musd } from "@/components/ui/data";
+import { FlowSteps } from "@/components/ui/flow-steps";
 import { Button, ButtonLink, ErrorNote, Input, Skeleton, cn } from "@/components/ui/primitives";
 import { useNetworkActions } from "@/components/wallet/wallet";
 
@@ -358,6 +359,7 @@ export function ReviewClient({ id }: { id: string }) {
 
   return (
     <div>
+      <FlowSteps current={phase === "idle" ? "review" : "sign"} />
       <div className="mb-5 flex flex-wrap items-center gap-3">
         <Link href="/send" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-text">
           <ArrowLeft className="size-4" aria-hidden /> Send

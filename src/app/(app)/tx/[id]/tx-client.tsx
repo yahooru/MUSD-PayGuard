@@ -13,6 +13,7 @@ import { formatDateTime, formatGas, relativeTime } from "@/lib/format";
 import { AssistantPanel, CheckList, GateRail, Verdict } from "@/components/engine/checks";
 import { VerificationSteps } from "@/components/engine/verification-steps";
 import { DefinitionList, FullAddress, Musd, TxHash } from "@/components/ui/data";
+import { FlowSteps } from "@/components/ui/flow-steps";
 import { Button, ButtonLink, ErrorNote, SectionTitle, Skeleton, cn } from "@/components/ui/primitives";
 import { RiskBadge, StatusOrb, TxStatusPill } from "@/components/ui/status";
 
@@ -62,6 +63,11 @@ export function TxClient({ id }: { id: string }) {
   const v = tx.verification;
   return (
     <div className="space-y-8">
+      <FlowSteps
+        current="verify"
+        outcome={tx.status === "confirmed" ? "done" : tx.status === "failed" ? "failed" : undefined}
+        className="mb-0"
+      />
       <section className={cn("hull relative overflow-hidden p-6 md:p-8", tx.status === "confirmed" && "flip-in")} aria-labelledby="status-h">
         <div className="grid-bg pointer-events-none absolute inset-0 opacity-60" aria-hidden />
         <div className="relative flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
